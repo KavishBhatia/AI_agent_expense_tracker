@@ -11,11 +11,11 @@ A simple, conversational agent to track your daily expenses, built using the Goo
 
 ## Setup
 
-1.  **Clone the Repository**
+1.  **Fork and Clone the Repository**
 
     ```bash
-    git clone https://github.com/your-username/expense-tracker-agent.git
-    cd expense-tracker-agent
+    git clone https://github.com/your-username/AI_agent_expense_tracker.git
+    cd AI_agent_expense_tracker
     ```
 
 2.  **Create a Virtual Environment**
