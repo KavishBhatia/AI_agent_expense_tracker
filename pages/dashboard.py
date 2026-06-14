@@ -98,7 +98,7 @@ def update_dashboard(period: str):
 
     return (
         kpi_cards,
-        charts.fig_monthly_trend(),
+        charts.fig_monthly_trend(start, end),
         charts.fig_category_donut(start, end),
         charts.fig_weekly_bar(start, end),
         charts.fig_top_merchants(start, end),

@@ -57,7 +57,7 @@ class TestMonthlyTrendData(BaseChartsTest):
     def test_groups_by_month(self):
         insert_expense(10.0, "Food", "a", date="2026-05-10")
         insert_expense(20.0, "Food", "b", date="2026-06-05")
-        df = monthly_trend_data()
+        df = monthly_trend_data("2026-05-01", "2026-06-30")
         self.assertIn("month", df.columns)
         self.assertIn("total", df.columns)
         self.assertEqual(len(df), 2)

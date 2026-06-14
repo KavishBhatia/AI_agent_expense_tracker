@@ -20,12 +20,12 @@ def kpi_stats(start_date: str, end_date: str) -> dict:
     return {"total": total, "count": count, "avg_per_day": avg}
 
 
-def monthly_trend_data() -> pd.DataFrame:
-    rows = fetch_expenses()
+def monthly_trend_data(start_date: str = None, end_date: str = None) -> pd.DataFrame:
+    rows = fetch_expenses(start_date, end_date)
     if not rows:
         return pd.DataFrame(columns=["month", "total"])
     df = pd.DataFrame(rows)
-    df["month"] = pd.to_datetime(df["date"]).dt.to_period("M").astype(str)
+    df["month"] = pd.to_datetime(df["date"]).dt.strftime("%Y-%m")
     return df.groupby("month")["amount"].sum().reset_index().rename(columns={"amount": "total"})
 
 
@@ -91,8 +91,8 @@ def heatmap_data(start_date: str, end_date: str) -> pd.DataFrame:
 
 # --- Figure builders ---
 
-def fig_monthly_trend() -> Figure:
-    df = monthly_trend_data()
+def fig_monthly_trend(start_date: str = None, end_date: str = None) -> Figure:
+    df = monthly_trend_data(start_date, end_date)
     if df.empty:
         return go.Figure().add_annotation(text="No data yet", showarrow=False)
     return px.line(df, x="month", y="total", markers=True,

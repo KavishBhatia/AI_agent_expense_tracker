@@ -21,22 +21,31 @@ app = dash.Dash(
 navbar = dbc.Navbar(
     dbc.Container(
         [
-            dbc.NavbarBrand("ExpenseAI", href="/", className="fw-bold"),
-            dbc.Nav(
-                [
-                    dbc.NavLink("Dashboard", href="/", active="exact"),
-                    dbc.NavLink("Add Expense", href="/add", active="exact"),
-                    dbc.NavLink("Import CSV", href="/import", active="exact"),
-                    dbc.NavLink("Scan Receipt", href="/scan", active="exact"),
-                ],
+            dbc.NavbarBrand("ExpenseAI", href="/", style={"color": "#111", "fontWeight": "700", "fontSize": "18px"}),
+            dbc.NavbarToggler(id="navbar-toggler"),
+            dbc.Collapse(
+                dbc.Nav(
+                    [
+                        dbc.NavLink("Dashboard", href="/", active="exact",
+                                    style={"color": "#444", "fontWeight": "500"}),
+                        dbc.NavLink("Add Expense", href="/add", active="exact",
+                                    style={"color": "#444", "fontWeight": "500"}),
+                        dbc.NavLink("Import CSV", href="/import", active="exact",
+                                    style={"color": "#444", "fontWeight": "500"}),
+                        dbc.NavLink("Scan Receipt", href="/scan", active="exact",
+                                    style={"color": "#444", "fontWeight": "500"}),
+                    ],
+                    navbar=True,
+                    className="ms-auto gap-2",
+                ),
+                id="navbar-collapse",
                 navbar=True,
-                className="ms-auto",
             ),
         ],
         fluid=True,
     ),
-    color="white",
-    className="border-bottom mb-4 shadow-sm",
+    style={"backgroundColor": "#ffffff", "borderBottom": "1px solid #e9ecef"},
+    className="mb-4 shadow-sm px-3",
 )
 
 app.layout = html.Div(
