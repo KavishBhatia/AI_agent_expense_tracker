@@ -208,3 +208,14 @@ __marimo__/
 
 # Expense tracker data
 expenses.csv
+
+# Expense tracker — local state
+expenses.db
+.DS_Store
+.adk/
+.gemini/
+.superpowers/
+.specify/
+.claude/
+openspec/
+.dash_cache/

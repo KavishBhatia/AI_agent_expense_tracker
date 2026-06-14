@@ -4,7 +4,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Optional
 
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
 from expense_tracker_agent.tools import CATEGORIES
 
@@ -45,9 +46,12 @@ class ReceiptData:
 
 
 def parse_receipt(image_bytes: bytes, mime_type: str = "image/jpeg") -> Optional[ReceiptData]:
-    model = genai.GenerativeModel("gemini-2.5-flash")
-    image_part = {"mime_type": mime_type, "data": image_bytes}
-    response = model.generate_content([_PROMPT, image_part])
+    client = genai.Client()
+    image_part = types.Part.from_bytes(data=image_bytes, mime_type=mime_type)
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=[_PROMPT, image_part],
+    )
     raw = response.text.strip()
     # strip markdown code fences if present
     raw = re.sub(r"^```(?:json)?\s*", "", raw)

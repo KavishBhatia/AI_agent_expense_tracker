@@ -20,11 +20,11 @@ class TestReceiptDataModel(unittest.TestCase):
 class TestParseReceipt(unittest.TestCase):
     @patch("expense_tracker_agent.receipt_scanner.genai")
     def test_returns_receipt_data_on_success(self, mock_genai):
-        mock_model = MagicMock()
-        mock_genai.GenerativeModel.return_value = mock_model
+        mock_client = MagicMock()
+        mock_genai.Client.return_value = mock_client
         mock_response = MagicMock()
         mock_response.text = '{"merchant":"Edeka","date":"2026-06-01","total":10.0,"items":[{"description":"beer","amount":3.0,"category":"Alcohol"},{"description":"bread","amount":7.0,"category":"Groceries"}]}'
-        mock_model.generate_content.return_value = mock_response
+        mock_client.models.generate_content.return_value = mock_response
 
         result = parse_receipt(b"fake_image_bytes")
 
@@ -35,11 +35,11 @@ class TestParseReceipt(unittest.TestCase):
 
     @patch("expense_tracker_agent.receipt_scanner.genai")
     def test_returns_none_on_invalid_json(self, mock_genai):
-        mock_model = MagicMock()
-        mock_genai.GenerativeModel.return_value = mock_model
+        mock_client = MagicMock()
+        mock_genai.Client.return_value = mock_client
         mock_response = MagicMock()
         mock_response.text = "Sorry, I cannot read this image."
-        mock_model.generate_content.return_value = mock_response
+        mock_client.models.generate_content.return_value = mock_response
 
         result = parse_receipt(b"bad_image")
         self.assertIsNone(result)
