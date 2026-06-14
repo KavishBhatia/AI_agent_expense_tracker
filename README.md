@@ -1,91 +1,82 @@
-# Expense Tracker Agent
+# ExpenseAI
 
-A simple, conversational agent to track your daily expenses, built using the Google Agent Development Kit (ADK).
+A personal expense tracker with a conversational AI agent and a web dashboard. Log expenses by chatting naturally, import CSV history, scan receipts with Gemini Vision, and explore your spending through interactive charts.
 
 ## Features
 
--   **Add Expenses**: Log new expenses with amount, category, and a description.
--   **Calculate Total Spending**: Get a real-time calculation of your total expenses.
--   **View Spending by Category**: See a breakdown of your spending by category.
--   **List Recent Expenses**: Retrieve a list of your most recent transactions.
+| Page | What it does |
+|------|-------------|
+| **Dashboard** | KPI cards, daily/monthly trend, category donut, top merchants, heatmap. Click any bar to drill down into that day's transactions. |
+| **Add Expense** | Chat with a Gemini-powered agent — "€9.49 at Edeka on 10/06" just works. Pick a date from the date picker or leave it blank for today. |
+| **Import CSV** | Upload a CSV, auto-detect date/cost/merchant columns (DD/MM/YYYY aware), preview before committing, get per-row error detail on failures. |
+| **Scan Receipt** | Upload a receipt photo — Gemini Vision extracts the merchant, total, and individual line items into an editable table before saving. |
+
+## Tech stack
+
+- **AI** — Google Gemini 2.5 Flash via [Google ADK](https://google.github.io/adk-docs/)
+- **Frontend** — [Plotly Dash](https://dash.plotly.com/) + Dash Bootstrap Components
+- **Charts** — Plotly
+- **Database** — SQLite (auto-created on first run, no setup needed)
+- **Data** — pandas
 
 ## Setup
 
-1.  **Fork and Clone the Repository**
+```bash
+# 1. Clone
+git clone https://github.com/kavishbhatia/AI_agent_expense_tracker.git
+cd AI_agent_expense_tracker
 
-    ```bash
-    git clone https://github.com/your-username/AI_agent_expense_tracker.git
-    cd AI_agent_expense_tracker
-    ```
+# 2. Virtual environment
+python3 -m venv .venv
+source .venv/bin/activate       # Windows: .venv\Scripts\activate
 
-2.  **Create a Virtual Environment**
+# 3. Install
+pip install -e .
 
-    ```bash
-    python3 -m venv .venv
-    source .venv/bin/activate
-    ```
+# 4. API key
+cp .env.example .env
+# Open .env and set GOOGLE_API_KEY=your_key_here
+```
 
-3.  **Install Dependencies**
+Get a free Gemini API key at [aistudio.google.com](https://aistudio.google.com/).
 
-    Install all the required packages using the `requirements.txt` file:
-
-    ```bash
-    pip install -r requirements.txt
-    ```
-    
-    Alternatively, you can install the project in editable mode, which is useful for development: 
-    
-    ```bash
-    pip install -e .
-    ```
-
-4.  **Set Up Environment Variables**
-
-    The agent requires a Gemini API key to function. Create a `.env` file in the root of the project:
-
-    ```bash
-    cp .env.example .env
-    ```
-
-    Then, open the `.env` file and add your API key:
-
-    ```
-    GEMINI_API_KEY="YOUR_API_KEY"
-    ```
-
-## How to Run
-
-You can run the agent by executing the `test_agent.py` script. This script simulates a conversation with the agent and demonstrates its key features.
+## Run
 
 ```bash
-python test_agent.py
+python app.py
 ```
 
-You should see an output where the agent processes several commands, adds expenses, and reports the totals.
+Open [http://localhost:8050](http://localhost:8050). The SQLite database is created automatically on first launch.
 
-## Example Usage
+## Project structure
 
-The `test_agent.py` script provides a clear example of how to interact with the agent. Here's a snippet:
-
-```python
-import asyncio
-from expense_tracker_agent.agent import root_agent
-
-async def run_agent_test():
-    print("--- Adding an expense (Food) ---")
-    response = root_agent.chat("Add an expense of 50 for food, description: Lunch with friends")
-    print(response)
-
-    print("\n--- Getting total expenses ---")
-    response = root_agent.chat("What are my total expenses?")
-    print(response)
-    
-    print("\n--- Listing recent expenses ---")
-    response = root_agent.chat("List my recent expenses")
-    print(response)
-
-if __name__ == "__main__":
-    asyncio.run(run_agent_test())
+```
+AI_agent_expense_tracker/
+├── app.py                          # Dash entry point
+├── pyproject.toml
+├── .env.example
+├── pages/                          # Dash multi-page UI
+│   ├── dashboard.py
+│   ├── add_expense.py
+│   ├── import_csv.py
+│   └── scan_receipt.py
+├── expense_tracker_agent/          # Backend package
+│   ├── agent.py                    # ADK root agent
+│   ├── tools.py                    # Agent tools (add, list, calculate…)
+│   ├── db.py                       # SQLite layer
+│   ├── receipt_scanner.py          # Gemini Vision receipt parsing
+│   ├── charts.py                   # Plotly figure builders
+│   └── agent_bridge.py             # Sync bridge from Dash → async ADK
+└── tests/
+    ├── test_db.py
+    ├── test_charts.py
+    ├── test_tools.py
+    ├── test_agent.py
+    └── test_receipt_scanner.py
 ```
 
-This demonstrates how you can import the `root_agent` and use its `.chat()` method to have a conversation.
+## Running tests
+
+```bash
+.venv/bin/python -m pytest tests/ -v
+```

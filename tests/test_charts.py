@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import expense_tracker_agent.db as db_module
 from expense_tracker_agent.db import init_db, insert_expense, insert_expense_item
-from charts import (
+from expense_tracker_agent.charts import (
     category_breakdown_data,
     heatmap_data,
     kpi_stats,
