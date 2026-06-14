@@ -1,45 +1,23 @@
-import csv
-from datetime import date, datetime
-from pathlib import Path
+# expense_tracker_agent/tools.py
+from datetime import date as _date
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from expense_tracker_agent.db import (
+    expense_exists,
+    fetch_expense_items,
+    fetch_expenses,
+    find_parent_expense,
+    init_db,
+    insert_expense,
+    insert_expense_item,
+)
 
-CSV_FILE = Path("expenses.csv")
+CATEGORIES = [
+    "Food", "Groceries", "Transport", "Entertainment",
+    "Bills", "Healthcare", "Shopping", "Alcohol", "Other",
+]
 
-CATEGORIES = ["Food", "Groceries", "Transport", "Entertainment",
-               "Bills", "Healthcare", "Shopping", "Other"]
-
-
-class Expense(BaseModel):
-    id: int = Field(description="Auto-assigned sequential ID.")
-    amount: float = Field(description="The numerical amount of the expense.")
-    category: str = Field(description="The category of the expense.")
-    description: str = Field(description="A brief description of the expense.")
-    merchant: Optional[str] = Field(default=None, description="Merchant or store name.")
-    date: str = Field(description="ISO date YYYY-MM-DD of the expense.")
-    timestamp: str = Field(description="ISO datetime when the expense was recorded.")
-    model_config = {"extra": "allow"}
-
-
-def _load_expenses() -> list[Expense]:
-    if not CSV_FILE.exists():
-        return []
-    with open(CSV_FILE, newline="") as f:
-        return [Expense(**row) for row in csv.DictReader(f)]
-
-
-def _save_expense(expense: Expense) -> None:
-    write_header = not CSV_FILE.exists()
-    fieldnames = ["id", "amount", "category", "description", "merchant", "date", "timestamp"]
-    with open(CSV_FILE, "a", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        if write_header:
-            writer.writeheader()
-        writer.writerow({k: getattr(expense, k, None) for k in fieldnames})
-
-
-expenses: list[Expense] = _load_expenses()
+init_db()
 
 
 def add_expense(
@@ -60,21 +38,104 @@ def add_expense(
         date: ISO date YYYY-MM-DD; defaults to today.
 
     Returns:
-        A confirmation message.
+        A confirmation message including the assigned expense id.
     """
-    resolved_date = date if date else _today()
-    expense = Expense(
-        id=len(expenses) + 1,
+    resolved_date = date or _date.today().isoformat()
+    eid = insert_expense(
         amount=amount,
         category=category,
         description=description,
         merchant=merchant,
         date=resolved_date,
-        timestamp=datetime.now().isoformat(timespec="seconds"),
+        source="ai_chat",
     )
-    expenses.append(expense)
-    _save_expense(expense)
-    return f"Added: {description} — ${amount:.2f} [{category}] on {resolved_date}"
+    return f"Added expense #{eid}: {description} — €{amount:.2f} [{category}] on {resolved_date}"
+
+
+def add_expense_item(
+    parent_id: int,
+    amount: float,
+    description: str,
+    category: str,
+) -> str:
+    """
+    Adds a sub-item to an existing parent expense.
+
+    Args:
+        parent_id: The id of the parent expense (from add_expense).
+        amount: The numerical amount of the sub-item.
+        description: A brief description (e.g. 'beer').
+        category: The category of the sub-item.
+
+    Returns:
+        A confirmation message.
+    """
+    existing_ids = {e["id"] for e in fetch_expenses()}
+    if parent_id not in existing_ids:
+        return f"Error: expense #{parent_id} not found."
+    iid = insert_expense_item(parent_id, amount, description, category)
+    return f"Added item #{iid}: {description} — €{amount:.2f} [{category}] under expense #{parent_id}"
+
+
+def list_expense_items(parent_id: int) -> str:
+    """
+    Lists all sub-items for a parent expense.
+
+    Args:
+        parent_id: The id of the parent expense.
+
+    Returns:
+        A formatted list of sub-items.
+    """
+    items = fetch_expense_items(parent_id)
+    if not items:
+        return f"No items found for expense #{parent_id}."
+    lines = [f"Items for expense #{parent_id}:"]
+    for it in items:
+        lines.append(f"  - {it['description']} ({it['category']}): €{it['amount']:.2f}")
+    return "\n".join(lines)
+
+
+def find_parent_expense_id(merchant: str, date: str) -> str:
+    """
+    Finds an existing parent expense by merchant and date.
+
+    Args:
+        merchant: The store or restaurant name.
+        date: ISO date YYYY-MM-DD.
+
+    Returns:
+        The parent expense id as a string, or 'not found'.
+    """
+    eid = find_parent_expense(merchant, date)
+    if eid is None:
+        return "not found"
+    return str(eid)
+
+
+def import_csv_row(date: str, amount: float, merchant: str) -> str:
+    """
+    Imports a single row from a CSV file, skipping duplicates.
+
+    Args:
+        date: ISO date YYYY-MM-DD.
+        amount: The expense amount.
+        merchant: The supermarket or store name.
+
+    Returns:
+        'Imported' or 'Skipped (duplicate)' message.
+    """
+    if expense_exists(date, merchant, amount):
+        return f"Skipped (duplicate): {merchant} €{amount:.2f} on {date}"
+    insert_expense(
+        amount=amount,
+        category="Groceries",
+        description=f"Import: {merchant}",
+        merchant=merchant,
+        date=date,
+        source="csv_import",
+    )
+    return f"Imported: {merchant} €{amount:.2f} on {date}"
 
 
 def calculate_total_spending(
@@ -82,7 +143,7 @@ def calculate_total_spending(
     end_date: Optional[str] = None,
 ) -> str:
     """
-    Calculates the total spending, optionally within a date range.
+    Calculates total spending, optionally within a date range.
 
     Args:
         start_date: ISO date inclusive lower bound.
@@ -91,9 +152,9 @@ def calculate_total_spending(
     Returns:
         A string with the total spending.
     """
-    filtered = _filter_by_date(expenses, start_date, end_date)
-    total = sum(e.amount for e in filtered)
-    return f"Total spending: ${total:.2f}"
+    rows = fetch_expenses(start_date, end_date)
+    total = sum(r["amount"] for r in rows)
+    return f"Total spending: €{total:.2f}"
 
 
 def get_spending_by_category(
@@ -101,27 +162,25 @@ def get_spending_by_category(
     end_date: Optional[str] = None,
 ) -> str:
     """
-    Gets the spending for each category, optionally within a date range.
+    Gets spending per category, optionally within a date range.
 
     Args:
         start_date: ISO date inclusive lower bound.
         end_date: ISO date inclusive upper bound.
 
     Returns:
-        A string with the spending per category.
+        A string with spending per category.
     """
-    filtered = _filter_by_date(expenses, start_date, end_date)
-    totals: dict[str, float] = {}
-    for e in filtered:
-        totals[e.category] = totals.get(e.category, 0) + e.amount
-
-    if not totals:
+    rows = fetch_expenses(start_date, end_date)
+    if not rows:
         return "No spending to report."
-
-    report = "Spending by category:\n"
-    for category, amount in totals.items():
-        report += f"- {category}: ${amount:.2f}\n"
-    return report
+    totals: dict[str, float] = {}
+    for r in rows:
+        totals[r["category"]] = totals.get(r["category"], 0) + r["amount"]
+    lines = ["Spending by category:"]
+    for cat, amt in sorted(totals.items(), key=lambda x: -x[1]):
+        lines.append(f"  - {cat}: €{amt:.2f}")
+    return "\n".join(lines)
 
 
 def list_recent_expenses(count: int = 5, category: Optional[str] = None) -> str:
@@ -129,43 +188,19 @@ def list_recent_expenses(count: int = 5, category: Optional[str] = None) -> str:
     Lists the most recent expenses.
 
     Args:
-        count: The number of recent expenses to list.
+        count: Number of expenses to return.
         category: Optional case-insensitive category filter.
 
     Returns:
-        A string with the recent expenses.
+        A formatted string of recent expenses.
     """
-    pool = expenses
+    rows = fetch_expenses()
     if category:
-        pool = [e for e in pool if e.category.lower() == category.lower()]
-
-    if not pool:
+        rows = [r for r in rows if r["category"].lower() == category.lower()]
+    if not rows:
         return "No expenses to report."
-
-    recent = pool[-count:]
-    report = "Recent expenses:\n"
-    for e in recent:
-        report += f"- {e.description} ({e.category}): ${e.amount:.2f} on {e.date}\n"
-    return report
-
-
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
-
-def _today() -> str:
-    from datetime import date as _date
-    return _date.today().isoformat()
-
-
-def _filter_by_date(
-    expense_list: list[Expense],
-    start_date: Optional[str],
-    end_date: Optional[str],
-) -> list[Expense]:
-    result = expense_list
-    if start_date:
-        result = [e for e in result if e.date >= start_date]
-    if end_date:
-        result = [e for e in result if e.date <= end_date]
-    return result
+    recent = rows[-count:]
+    lines = ["Recent expenses:"]
+    for r in recent:
+        lines.append(f"  - {r['description']} ({r['category']}): €{r['amount']:.2f} on {r['date']}")
+    return "\n".join(lines)
