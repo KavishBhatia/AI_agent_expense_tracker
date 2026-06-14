@@ -1,0 +1,141 @@
+# expense_tracker_agent/db.py
+import csv as _csv
+import sqlite3
+from contextlib import contextmanager
+from datetime import datetime
+from pathlib import Path
+from typing import Optional
+
+DB_PATH = Path("expenses.db")
+
+
+@contextmanager
+def _conn():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    try:
+        yield conn
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def init_db() -> None:
+    with _conn() as conn:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS expenses (
+                id        INTEGER PRIMARY KEY AUTOINCREMENT,
+                amount    REAL    NOT NULL,
+                merchant  TEXT,
+                category  TEXT    NOT NULL,
+                description TEXT  NOT NULL,
+                date      TEXT    NOT NULL,
+                timestamp TEXT    NOT NULL,
+                source    TEXT    NOT NULL DEFAULT 'manual'
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS expense_items (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                parent_id   INTEGER NOT NULL REFERENCES expenses(id),
+                amount      REAL    NOT NULL,
+                description TEXT    NOT NULL,
+                category    TEXT    NOT NULL,
+                timestamp   TEXT    NOT NULL
+            )
+        """)
+
+
+def insert_expense(
+    amount: float,
+    category: str,
+    description: str,
+    merchant: Optional[str] = None,
+    date: Optional[str] = None,
+    source: str = "manual",
+) -> int:
+    ts = datetime.now().isoformat(timespec="seconds")
+    d = date or datetime.now().date().isoformat()
+    with _conn() as conn:
+        cur = conn.execute(
+            "INSERT INTO expenses (amount, merchant, category, description, date, timestamp, source) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (amount, merchant, category, description, d, ts, source),
+        )
+        return cur.lastrowid
+
+
+def insert_expense_item(parent_id: int, amount: float, description: str, category: str) -> int:
+    ts = datetime.now().isoformat(timespec="seconds")
+    with _conn() as conn:
+        cur = conn.execute(
+            "INSERT INTO expense_items (parent_id, amount, description, category, timestamp) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (parent_id, amount, description, category, ts),
+        )
+        return cur.lastrowid
+
+
+def fetch_expenses(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+) -> list[dict]:
+    sql = "SELECT * FROM expenses WHERE 1=1"
+    params: list = []
+    if start_date:
+        sql += " AND date >= ?"
+        params.append(start_date)
+    if end_date:
+        sql += " AND date <= ?"
+        params.append(end_date)
+    sql += " ORDER BY date ASC, id ASC"
+    with _conn() as conn:
+        rows = conn.execute(sql, params).fetchall()
+    return [dict(r) for r in rows]
+
+
+def fetch_expense_items(parent_id: int) -> list[dict]:
+    with _conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM expense_items WHERE parent_id = ? ORDER BY id",
+            (parent_id,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def expense_exists(date: str, merchant: str, amount: float) -> bool:
+    with _conn() as conn:
+        row = conn.execute(
+            "SELECT 1 FROM expenses WHERE date=? AND merchant=? AND amount=?",
+            (date, merchant, amount),
+        ).fetchone()
+    return row is not None
+
+
+def find_parent_expense(merchant: str, date: str) -> Optional[int]:
+    with _conn() as conn:
+        row = conn.execute(
+            "SELECT id FROM expenses WHERE merchant=? AND date=? ORDER BY id DESC LIMIT 1",
+            (merchant, date),
+        ).fetchone()
+    return row["id"] if row else None
+
+
+def migrate_from_csv(csv_path: Path) -> int:
+    if not csv_path.exists():
+        return 0
+    count = 0
+    with open(csv_path, newline="") as f:
+        for row in _csv.DictReader(f):
+            merchant = row.get("merchant") or None
+            if not expense_exists(row["date"], merchant or "", float(row["amount"])):
+                insert_expense(
+                    amount=float(row["amount"]),
+                    category=row["category"],
+                    description=row["description"],
+                    merchant=merchant,
+                    date=row["date"],
+                    source="csv_import",
+                )
+                count += 1
+    return count
