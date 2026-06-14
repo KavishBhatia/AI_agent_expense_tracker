@@ -42,7 +42,7 @@ def weekly_bar_data(start_date: str, end_date: str) -> pd.DataFrame:
     if not rows:
         return pd.DataFrame(columns=["week", "total"])
     df = pd.DataFrame(rows)
-    df["week"] = pd.to_datetime(df["date"]).dt.to_period("W").astype(str)
+    df["week"] = pd.to_datetime(df["date"]).dt.strftime("%G-W%V")
     return df.groupby("week")["amount"].sum().reset_index().rename(columns={"amount": "total"})
 
 
@@ -92,12 +92,33 @@ def heatmap_data(start_date: str, end_date: str) -> pd.DataFrame:
 # --- Figure builders ---
 
 def fig_monthly_trend(start_date: str = None, end_date: str = None) -> Figure:
-    df = monthly_trend_data(start_date, end_date)
-    if df.empty:
+    from datetime import date as _date
+    rows = fetch_expenses(start_date, end_date)
+    if not rows:
         return go.Figure().add_annotation(text="No data yet", showarrow=False)
-    return px.line(df, x="month", y="total", markers=True,
-                   labels={"month": "Month", "total": "€ Spent"},
-                   title="Monthly Spending Trend")
+
+    # Use daily bars for ranges ≤ 45 days, monthly line otherwise
+    if start_date and end_date:
+        days_range = (_date.fromisoformat(end_date) - _date.fromisoformat(start_date)).days
+    else:
+        days_range = 999
+
+    df = pd.DataFrame(rows)
+    if days_range <= 45:
+        df["period"] = pd.to_datetime(df["date"]).dt.strftime("%d/%m/%Y")
+        title = "Daily Spending"
+        xlabel = "Date"
+        fig = px.bar(df.groupby("period")["amount"].sum().reset_index().rename(columns={"amount": "total"}),
+                     x="period", y="total", labels={"period": xlabel, "total": "€ Spent"}, title=title)
+    else:
+        df["period"] = pd.to_datetime(df["date"]).dt.strftime("%m/%Y")
+        title = "Monthly Spending Trend"
+        xlabel = "Month"
+        fig = px.line(df.groupby("period")["amount"].sum().reset_index().rename(columns={"amount": "total"}),
+                      x="period", y="total", markers=True,
+                      labels={"period": xlabel, "total": "€ Spent"}, title=title)
+    fig.update_xaxes(type="category")
+    return fig
 
 
 def fig_category_donut(start_date: str, end_date: str) -> Figure:
@@ -112,9 +133,11 @@ def fig_weekly_bar(start_date: str, end_date: str) -> Figure:
     df = weekly_bar_data(start_date, end_date)
     if df.empty:
         return go.Figure().add_annotation(text="No data yet", showarrow=False)
-    return px.bar(df, x="week", y="total",
-                  labels={"week": "Week", "total": "€ Spent"},
-                  title="Weekly Spending")
+    fig = px.bar(df, x="week", y="total",
+                 labels={"week": "Week", "total": "€ Spent"},
+                 title="Weekly Spending")
+    fig.update_xaxes(type="category")
+    return fig
 
 
 def fig_top_merchants(start_date: str, end_date: str) -> Figure:
@@ -142,7 +165,7 @@ def fig_heatmap(start_date: str, end_date: str) -> Figure:
         return go.Figure().add_annotation(text="No data yet", showarrow=False)
     df["date_obj"] = pd.to_datetime(df["date"])
     df["weekday"] = df["date_obj"].dt.day_name()
-    df["week"] = df["date_obj"].dt.isocalendar().week.astype(str)
+    df["week"] = df["date_obj"].dt.strftime("%G-W%V")
     pivot = df.pivot_table(index="weekday", columns="week", values="total", aggfunc="sum")
     day_order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
     pivot = pivot.reindex([d for d in day_order if d in pivot.index])
