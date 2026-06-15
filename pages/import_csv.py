@@ -20,7 +20,7 @@ layout = html.Div([
     html.H5("Import CSV", className="mb-3"),
     html.P(
         "Upload a CSV with columns for date, cost, and supermarket name. "
-        "Column names are detected automatically.",
+        "Column names are detected automatically. Categories are assigned by Gemini AI.",
         className="text-muted mb-4",
     ),
     dcc.Upload(
@@ -36,8 +36,16 @@ layout = html.Div([
         },
         accept=".csv",
     ),
-    html.Div(id="csv-preview-section", className="mt-4"),
-    html.Div(id="csv-import-result", className="mt-3"),
+    dcc.Loading(html.Div(id="csv-preview-section", className="mt-4")),
+    dcc.Loading(html.Div(id="csv-import-result", className="mt-3")),
+    html.Hr(className="mt-5"),
+    html.H6("Re-categorise Existing Expenses", className="mb-1"),
+    html.P(
+        "Run Gemini AI over all expenses already in the database and update their categories.",
+        className="text-muted small mb-3",
+    ),
+    dbc.Button("Re-categorise All with AI", id="recategorise-btn", color="secondary", outline=True),
+    dcc.Loading(html.Div(id="recategorise-result", className="mt-3")),
 ])
 
 
@@ -124,10 +132,23 @@ def run_import(n_clicks, json_data, date_col, cost_col, merchant_col):
     if not all([date_col, cost_col]):
         return dbc.Alert("Please map at least Date and Cost columns before importing.", color="warning")
 
+    from expense_tracker_agent.categoriser import classify_expenses
+
     df = pd.read_json(io.StringIO(json_data), orient="records", convert_dates=False, dtype=str)
+
+    # Batch-classify all rows with Gemini before inserting
+    classify_items = [
+        {
+            "description": str(row[merchant_col]).strip() if merchant_col else "",
+            "merchant": str(row[merchant_col]).strip() if merchant_col else "",
+        }
+        for _, row in df.iterrows()
+    ]
+    categories = classify_expenses(classify_items)
+
     imported, skipped = 0, 0
     failed_rows = []
-    for i, row in df.iterrows():
+    for idx, (i, row) in enumerate(df.iterrows()):
         try:
             merchant = str(row[merchant_col]).strip() if merchant_col else ""
             raw_date = str(row[date_col]).strip()
@@ -136,6 +157,7 @@ def run_import(n_clicks, json_data, date_col, cost_col, merchant_col):
                 date=normalized_date,
                 amount=float(str(row[cost_col]).replace(",", ".")),
                 merchant=merchant,
+                category=categories[idx],
             )
             if "skipped" in result.lower():
                 skipped += 1
@@ -192,3 +214,33 @@ def run_import(n_clicks, json_data, date_col, cost_col, merchant_col):
     if not alerts:
         alerts.append(dbc.Alert("Nothing was imported.", color="info", dismissable=True))
     return html.Div(alerts)
+
+
+@callback(
+    Output("recategorise-result", "children"),
+    Input("recategorise-btn", "n_clicks"),
+    prevent_initial_call=True,
+)
+def recategorise_all(n_clicks):
+    if not n_clicks:
+        return dash.no_update
+    from expense_tracker_agent.categoriser import classify_expenses
+    from expense_tracker_agent.db import fetch_expenses, update_expense_category
+
+    rows = fetch_expenses()
+    if not rows:
+        return dbc.Alert("No expenses in the database yet.", color="info", dismissable=True)
+
+    items = [
+        {"description": r["description"], "merchant": r.get("merchant") or ""}
+        for r in rows
+    ]
+    categories = classify_expenses(items)
+
+    for row, cat in zip(rows, categories):
+        update_expense_category(row["id"], cat)
+
+    return dbc.Alert(
+        f"Done — re-categorised {len(rows)} expense{'s' if len(rows) != 1 else ''} with AI.",
+        color="success", dismissable=True,
+    )

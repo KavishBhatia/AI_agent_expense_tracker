@@ -105,18 +105,28 @@ def fig_monthly_trend(start_date: str = None, end_date: str = None) -> Figure:
 
     df = pd.DataFrame(rows)
     if days_range <= 45:
-        df["period"] = pd.to_datetime(df["date"]).dt.strftime("%d/%m/%Y")
-        title = "Daily Spending"
-        xlabel = "Date"
-        fig = px.bar(df.groupby("period")["amount"].sum().reset_index().rename(columns={"amount": "total"}),
-                     x="period", y="total", labels={"period": xlabel, "total": "€ Spent"}, title=title)
+        # Sort by ISO date (YYYY-MM-DD), display as DD/MM/YYYY
+        grouped = (df.groupby("date")["amount"].sum()
+                   .reset_index()
+                   .rename(columns={"amount": "total"})
+                   .sort_values("date"))
+        grouped["period"] = pd.to_datetime(grouped["date"]).dt.strftime("%d/%m/%Y")
+        title, xlabel = "Daily Spending", "Date"
+        fig = px.bar(grouped, x="period", y="total",
+                     labels={"period": xlabel, "total": "€ Spent"}, title=title,
+                     color_discrete_sequence=["#0d9488"])
     else:
-        df["period"] = pd.to_datetime(df["date"]).dt.strftime("%m/%Y")
-        title = "Monthly Spending Trend"
-        xlabel = "Month"
-        fig = px.line(df.groupby("period")["amount"].sum().reset_index().rename(columns={"amount": "total"}),
-                      x="period", y="total", markers=True,
-                      labels={"period": xlabel, "total": "€ Spent"}, title=title)
+        # Sort by ISO month (YYYY-MM), display as MM/YYYY
+        df["sort_key"] = pd.to_datetime(df["date"]).dt.strftime("%Y-%m")
+        grouped = (df.groupby("sort_key")["amount"].sum()
+                   .reset_index()
+                   .rename(columns={"amount": "total"})
+                   .sort_values("sort_key"))
+        grouped["period"] = pd.to_datetime(grouped["sort_key"]).dt.strftime("%m/%Y")
+        title, xlabel = "Monthly Spending Trend", "Month"
+        fig = px.line(grouped, x="period", y="total", markers=True,
+                      labels={"period": xlabel, "total": "€ Spent"}, title=title,
+                      color_discrete_sequence=["#0d9488"])
     fig.update_xaxes(type="category")
     return fig
 
@@ -126,7 +136,8 @@ def fig_category_donut(start_date: str, end_date: str) -> Figure:
     if df.empty:
         return go.Figure().add_annotation(text="No data yet", showarrow=False)
     return px.pie(df, names="category", values="total", hole=0.45,
-                  title="Spending by Category")
+                  title="Spending by Category",
+                  color_discrete_sequence=["#0d9488", "#3b82f6", "#f59e0b", "#8b5cf6", "#ef4444", "#84cc16", "#f97316"])
 
 
 def fig_weekly_bar(start_date: str, end_date: str) -> Figure:
@@ -135,7 +146,8 @@ def fig_weekly_bar(start_date: str, end_date: str) -> Figure:
         return go.Figure().add_annotation(text="No data yet", showarrow=False)
     fig = px.bar(df, x="week", y="total",
                  labels={"week": "Week", "total": "€ Spent"},
-                 title="Weekly Spending")
+                 title="Weekly Spending",
+                 color_discrete_sequence=["#0d9488"])
     fig.update_xaxes(type="category")
     return fig
 
@@ -147,7 +159,8 @@ def fig_top_merchants(start_date: str, end_date: str) -> Figure:
     return px.bar(df.sort_values("total"), x="total", y="merchant",
                   orientation="h",
                   labels={"total": "€ Spent", "merchant": ""},
-                  title="Top Merchants")
+                  title="Top Merchants",
+                  color_discrete_sequence=["#0d9488"])
 
 
 def fig_sub_expense_breakdown(start_date: str, end_date: str) -> Figure:
@@ -156,7 +169,8 @@ def fig_sub_expense_breakdown(start_date: str, end_date: str) -> Figure:
         return go.Figure().add_annotation(text="No receipt data yet", showarrow=False)
     return px.bar(df, x="merchant", y="amount", color="category",
                   title="Sub-expense Breakdown by Store",
-                  labels={"amount": "€", "merchant": "Store"})
+                  labels={"amount": "€", "merchant": "Store"},
+                  color_discrete_sequence=["#0d9488", "#3b82f6", "#f59e0b", "#8b5cf6", "#ef4444", "#84cc16", "#f97316"])
 
 
 def fig_heatmap(start_date: str, end_date: str) -> Figure:
@@ -169,6 +183,6 @@ def fig_heatmap(start_date: str, end_date: str) -> Figure:
     pivot = df.pivot_table(index="weekday", columns="week", values="total", aggfunc="sum")
     day_order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
     pivot = pivot.reindex([d for d in day_order if d in pivot.index])
-    return px.imshow(pivot, color_continuous_scale="Blues",
+    return px.imshow(pivot, color_continuous_scale="Teal",
                      title="Daily Spending Heatmap",
                      labels={"color": "€ Spent"})

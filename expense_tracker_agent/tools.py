@@ -13,8 +13,22 @@ from expense_tracker_agent.db import (
 )
 
 CATEGORIES = [
-    "Food", "Groceries", "Transport", "Entertainment",
-    "Bills", "Healthcare", "Shopping", "Alcohol", "Other",
+    "Groceries",
+    "Food & Dining",
+    "Transport",
+    "Entertainment",
+    "Clothing & Fashion",
+    "Pharmacy",
+    "Health & Fitness",
+    "Housing & Utilities",
+    "Travel",
+    "Electronics",
+    "Subscriptions",
+    "Personal Care",
+    "Education",
+    "Gifts",
+    "Alcohol",
+    "Miscellaneous",
 ]
 
 init_db()
@@ -113,7 +127,7 @@ def find_parent_expense_id(merchant: str, date: str) -> str:
     return str(eid)
 
 
-def import_csv_row(date: str, amount: float, merchant: str) -> str:
+def import_csv_row(date: str, amount: float, merchant: str, category: str = "Miscellaneous") -> str:
     """
     Imports a single row from a CSV file, skipping duplicates.
 
@@ -121,6 +135,7 @@ def import_csv_row(date: str, amount: float, merchant: str) -> str:
         date: ISO date YYYY-MM-DD.
         amount: The expense amount.
         merchant: The supermarket or store name.
+        category: Pre-classified category (defaults to Miscellaneous).
 
     Returns:
         'Imported' or 'Skipped (duplicate)' message.
@@ -129,7 +144,7 @@ def import_csv_row(date: str, amount: float, merchant: str) -> str:
         return f"Skipped (duplicate): {merchant} €{amount:.2f} on {date}"
     insert_expense(
         amount=amount,
-        category="Groceries",
+        category=category,
         description=f"Import: {merchant}",
         merchant=merchant,
         date=date,

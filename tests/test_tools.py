@@ -51,8 +51,7 @@ class TestCategories(unittest.TestCase):
         self.assertIsInstance(CATEGORIES, list)
 
     def test_categories_contains_core_values(self):
-        for cat in ["Food", "Groceries", "Transport", "Entertainment",
-                    "Bills", "Healthcare", "Shopping", "Other"]:
+        for cat in ["Groceries", "Transport", "Entertainment", "Alcohol", "Miscellaneous"]:
             self.assertIn(cat, CATEGORIES)
 
     def test_alcohol_in_categories(self):

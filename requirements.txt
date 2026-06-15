@@ -1,9 +1,0 @@
-google-adk
-pydantic
-uvicorn
-google-generativeai
-langchain_core
-langchain_community
-langgraph
-litellm
-langchain

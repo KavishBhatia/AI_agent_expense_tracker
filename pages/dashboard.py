@@ -51,7 +51,7 @@ def _recent_table(rows, limit: int = 6):
         html.Tr([
             html.Td(_fmt(r["date"]), className="text-muted small"),
             html.Td(r.get("merchant") or "—"),
-            html.Td(dbc.Badge(r["category"], color="secondary", className="small")),
+            html.Td(html.Span(r["category"], className="small", style={"backgroundColor": "#14b8a6", "color": "#fff", "borderRadius": "4px", "padding": "2px 7px"})),
             html.Td(f"€{r['amount']:.2f}", className="fw-semibold text-end"),
             html.Td(r["description"], className="text-muted small"),
         ])
@@ -133,19 +133,20 @@ def update_dashboard(period: str):
     start, end = _date_range(period)
     stats = charts.kpi_stats(start, end)
 
+    _card_style = {"borderTop": "3px solid #14b8a6", "borderRadius": "8px"}
     kpi_cards = [
         dbc.Col(dbc.Card(dbc.CardBody([
             html.P("Total Spent", className="text-muted small mb-1"),
             html.H3(f"€{stats['total']:.2f}", className="mb-0"),
-        ])), md=4),
+        ]), style=_card_style), md=4),
         dbc.Col(dbc.Card(dbc.CardBody([
             html.P("Transactions", className="text-muted small mb-1"),
             html.H3(str(stats["count"]), className="mb-0"),
-        ])), md=4),
+        ]), style=_card_style), md=4),
         dbc.Col(dbc.Card(dbc.CardBody([
             html.P("Avg / Day", className="text-muted small mb-1"),
             html.H3(f"€{stats['avg_per_day']:.2f}", className="mb-0"),
-        ])), md=4),
+        ]), style=_card_style), md=4),
     ]
 
     def _safe(fn, *args):
@@ -192,7 +193,7 @@ def show_day_detail(click_data):
     table_rows = [
         html.Tr([
             html.Td(r.get("merchant") or "—"),
-            html.Td(dbc.Badge(r["category"], color="secondary", className="small")),
+            html.Td(html.Span(r["category"], className="small", style={"backgroundColor": "#14b8a6", "color": "#fff", "borderRadius": "4px", "padding": "2px 7px"})),
             html.Td(f"€{r['amount']:.2f}", className="fw-semibold text-end"),
             html.Td(r["description"], className="text-muted small"),
         ])
@@ -219,4 +220,4 @@ def show_day_detail(click_data):
             ],
             hover=True, responsive=True, size="sm", className="mb-0",
         ),
-    ]), className="border-primary border-start border-3 ps-0")
+    ]), style={"borderLeft": "3px solid #14b8a6", "borderRadius": "8px"})

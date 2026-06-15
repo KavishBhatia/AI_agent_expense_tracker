@@ -121,6 +121,14 @@ def find_parent_expense(merchant: str, date: str) -> Optional[int]:
     return row["id"] if row else None
 
 
+def update_expense_category(expense_id: int, category: str) -> None:
+    with _conn() as conn:
+        conn.execute(
+            "UPDATE expenses SET category = ? WHERE id = ?",
+            (category, expense_id),
+        )
+
+
 def migrate_from_csv(csv_path: Path) -> int:
     if not csv_path.exists():
         return 0

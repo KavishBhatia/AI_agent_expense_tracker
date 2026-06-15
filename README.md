@@ -26,12 +26,11 @@ A personal expense tracker with a conversational AI agent and a web dashboard. L
 git clone https://github.com/kavishbhatia/AI_agent_expense_tracker.git
 cd AI_agent_expense_tracker
 
-# 2. Virtual environment
-python3 -m venv .venv
-source .venv/bin/activate       # Windows: .venv\Scripts\activate
+# 2. Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# 3. Install
-pip install -e .
+# 3. Install dependencies (creates .venv automatically)
+uv sync --dev
 
 # 4. API key
 cp .env.example .env
@@ -43,7 +42,7 @@ Get a free Gemini API key at [aistudio.google.com](https://aistudio.google.com/)
 ## Run
 
 ```bash
-python app.py
+uv run python app.py
 ```
 
 Open [http://localhost:8050](http://localhost:8050). The SQLite database is created automatically on first launch.
@@ -54,6 +53,7 @@ Open [http://localhost:8050](http://localhost:8050). The SQLite database is crea
 AI_agent_expense_tracker/
 ├── app.py                          # Dash entry point
 ├── pyproject.toml
+├── uv.lock
 ├── .env.example
 ├── pages/                          # Dash multi-page UI
 │   ├── dashboard.py
@@ -78,5 +78,5 @@ AI_agent_expense_tracker/
 ## Running tests
 
 ```bash
-.venv/bin/python -m pytest tests/ -v
+uv run pytest tests/ -v
 ```

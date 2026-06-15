@@ -104,9 +104,13 @@ def save_receipt(n_clicks, merchant, date, total, items):
     if not n_clicks:
         return dash.no_update, dash.no_update
 
+    from collections import Counter
+    item_cats = [item.get("category", "Miscellaneous") for item in (items or [])]
+    parent_category = Counter(item_cats).most_common(1)[0][0] if item_cats else "Miscellaneous"
+
     parent_id = insert_expense(
         amount=float(total or 0),
-        category="Groceries",
+        category=parent_category,
         description=f"Receipt: {merchant}",
         merchant=merchant,
         date=date,
