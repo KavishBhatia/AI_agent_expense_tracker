@@ -1,4 +1,4 @@
-# agent_bridge.py
+# expense_tracker_agent/agent_bridge.py
 import asyncio
 import threading
 from typing import Optional

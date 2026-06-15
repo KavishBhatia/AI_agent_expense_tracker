@@ -212,6 +212,7 @@ expenses.csv
 # Expense tracker — local state
 expenses.db
 .DS_Store
+llms-full.txt
 .adk/
 .gemini/
 .superpowers/

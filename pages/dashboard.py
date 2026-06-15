@@ -5,7 +5,7 @@ import dash
 import dash_bootstrap_components as dbc
 from dash import Input, Output, callback, dcc, html
 
-import charts
+from expense_tracker_agent import charts
 from expense_tracker_agent.db import fetch_expenses
 
 

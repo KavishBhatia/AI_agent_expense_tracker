@@ -3,7 +3,7 @@ import dash
 import dash_bootstrap_components as dbc
 from dash import Input, Output, State, callback, dcc, html
 
-import agent_bridge
+from expense_tracker_agent import agent_bridge
 from expense_tracker_agent.db import fetch_expenses
 
 dash.register_page(__name__, path="/add", name="Add Expense")
