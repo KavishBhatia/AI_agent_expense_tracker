@@ -43,8 +43,7 @@ class TestAgentInstruction(unittest.TestCase):
         self.assertIn("2026-06-03", self.instruction)
 
     def test_instruction_contains_all_categories(self):
-        for cat in ["Food", "Groceries", "Transport", "Entertainment",
-                    "Bills", "Healthcare", "Shopping", "Other"]:
+        for cat in ["Groceries", "Transport", "Entertainment", "Alcohol", "Miscellaneous"]:
             self.assertIn(cat, self.instruction)
 
     def test_instruction_mentions_category_inference(self):

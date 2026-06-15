@@ -31,9 +31,14 @@ def init_db() -> None:
                 description TEXT  NOT NULL,
                 date      TEXT    NOT NULL,
                 timestamp TEXT    NOT NULL,
-                source    TEXT    NOT NULL DEFAULT 'manual'
+                source    TEXT    NOT NULL DEFAULT 'manual',
+                deleted   INTEGER NOT NULL DEFAULT 0
             )
         """)
+        # Migration: add deleted column to pre-existing databases
+        existing_cols = [r[1] for r in conn.execute("PRAGMA table_info(expenses)").fetchall()]
+        if "deleted" not in existing_cols:
+            conn.execute("ALTER TABLE expenses ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS expense_items (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -80,7 +85,7 @@ def fetch_expenses(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
 ) -> list[dict]:
-    sql = "SELECT * FROM expenses WHERE 1=1"
+    sql = "SELECT * FROM expenses WHERE deleted = 0"
     params: list = []
     if start_date:
         sql += " AND date >= ?"
@@ -119,6 +124,16 @@ def find_parent_expense(merchant: str, date: str) -> Optional[int]:
             (merchant, date),
         ).fetchone()
     return row["id"] if row else None
+
+
+def delete_expense(expense_id: int) -> None:
+    with _conn() as conn:
+        conn.execute("UPDATE expenses SET deleted = 1 WHERE id = ?", (expense_id,))
+
+
+def restore_expense(expense_id: int) -> None:
+    with _conn() as conn:
+        conn.execute("UPDATE expenses SET deleted = 0 WHERE id = ?", (expense_id,))
 
 
 def update_expense_category(expense_id: int, category: str) -> None:

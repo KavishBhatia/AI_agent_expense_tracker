@@ -59,7 +59,7 @@ async def _send_message(message: str) -> str:
         session_id=_SESSION_ID,
         new_message=content,
     ):
-        if hasattr(event, "content") and event.content:
+        if hasattr(event, "content") and event.content and event.content.parts:
             for part in event.content.parts:
                 if hasattr(part, "text") and part.text:
                     response_text += part.text

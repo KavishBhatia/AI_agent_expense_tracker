@@ -3,10 +3,10 @@ from datetime import date, timedelta
 
 import dash
 import dash_bootstrap_components as dbc
-from dash import Input, Output, callback, dcc, html
+from dash import ALL, Input, Output, State, callback, dcc, html
 
 from expense_tracker_agent import charts
-from expense_tracker_agent.db import fetch_expenses
+from expense_tracker_agent.db import delete_expense, fetch_expenses, restore_expense
 
 
 def _fmt(iso: str) -> str:
@@ -54,6 +54,12 @@ def _recent_table(rows, limit: int = 6):
             html.Td(html.Span(r["category"], className="small", style={"backgroundColor": "#14b8a6", "color": "#fff", "borderRadius": "4px", "padding": "2px 7px"})),
             html.Td(f"€{r['amount']:.2f}", className="fw-semibold text-end"),
             html.Td(r["description"], className="text-muted small"),
+            html.Td(
+                dbc.Button("×", id={"type": "del-expense", "index": r["id"]},
+                           size="sm", color="link",
+                           style={"color": "#dc3545", "padding": "0 4px", "lineHeight": "1"}),
+                className="text-center",
+            ),
         ])
         for r in recent
     ]
@@ -62,6 +68,7 @@ def _recent_table(rows, limit: int = 6):
             html.Thead(html.Tr([
                 html.Th("Date"), html.Th("Store"), html.Th("Category"),
                 html.Th("Amount", className="text-end"), html.Th("Description"),
+                html.Th(),
             ])),
             html.Tbody(table_rows),
         ],
@@ -69,7 +76,28 @@ def _recent_table(rows, limit: int = 6):
     )
 
 
+_TOAST_HIDDEN = {"position": "fixed", "bottom": "20px", "right": "20px",
+                 "zIndex": 9999, "display": "none"}
+_TOAST_VISIBLE = {**_TOAST_HIDDEN, "display": "block"}
+
 layout = html.Div([
+    dcc.Store(id="expense-deleted-store"),
+    dcc.Store(id="last-deleted-store"),   # {"id": int, "merchant": str, "amount": float}
+    # Undo toast — always in the DOM, shown/hidden via style
+    html.Div(
+        id="undo-toast-container",
+        style=_TOAST_HIDDEN,
+        children=dbc.Alert(
+            [
+                html.Span(id="undo-toast-text", className="me-3 small"),
+                dbc.Button("Undo", id="undo-expense-btn", size="sm", n_clicks=0,
+                           style={"backgroundColor": "#0d9488", "borderColor": "#0d9488",
+                                  "color": "#fff"}),
+            ],
+            color="dark",
+            className="d-flex align-items-center mb-0 py-2 shadow",
+        ),
+    ),
     dbc.Row([
         dbc.Col(
             dbc.Select(
@@ -128,8 +156,9 @@ layout = html.Div([
     Output("chart-sub-breakdown", "figure"),
     Output("chart-heatmap", "figure"),
     Input("period-select", "value"),
+    Input("expense-deleted-store", "data"),
 )
-def update_dashboard(period: str):
+def update_dashboard(period: str, _deleted):
     start, end = _date_range(period)
     stats = charts.kpi_stats(start, end)
 
@@ -221,3 +250,48 @@ def show_day_detail(click_data):
             hover=True, responsive=True, size="sm", className="mb-0",
         ),
     ]), style={"borderLeft": "3px solid #14b8a6", "borderRadius": "8px"})
+
+
+@callback(
+    Output("expense-deleted-store", "data"),
+    Output("last-deleted-store", "data"),
+    Output("undo-toast-container", "style"),
+    Output("undo-toast-text", "children"),
+    Input({"type": "del-expense", "index": ALL}, "n_clicks"),
+    prevent_initial_call=True,
+)
+def handle_delete(n_clicks_list):
+    import json
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return dash.no_update, dash.no_update, dash.no_update, dash.no_update
+    for trigger in ctx.triggered:
+        if trigger["value"]:
+            expense_id = json.loads(trigger["prop_id"].split(".")[0])["index"]
+            # Fetch the row before soft-deleting so we can show it in the toast
+            rows = fetch_expenses()
+            row = next((r for r in rows if r["id"] == expense_id), None)
+            delete_expense(expense_id)
+            label = f"{row['merchant'] or row['description']} €{row['amount']:.2f}" if row else f"#{expense_id}"
+            return (
+                {"action": "delete", "id": expense_id},
+                {"id": expense_id, "label": label},
+                _TOAST_VISIBLE,
+                f"Deleted: {label}",
+            )
+    return dash.no_update, dash.no_update, dash.no_update, dash.no_update
+
+
+@callback(
+    Output("expense-deleted-store", "data", allow_duplicate=True),
+    Output("last-deleted-store", "data", allow_duplicate=True),
+    Output("undo-toast-container", "style", allow_duplicate=True),
+    Input("undo-expense-btn", "n_clicks"),
+    State("last-deleted-store", "data"),
+    prevent_initial_call=True,
+)
+def handle_restore(n_clicks, last_deleted):
+    if not n_clicks or not last_deleted:
+        return dash.no_update, dash.no_update, dash.no_update
+    restore_expense(last_deleted["id"])
+    return {"action": "restore", "id": last_deleted["id"]}, None, _TOAST_HIDDEN
