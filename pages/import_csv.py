@@ -41,7 +41,7 @@ layout = html.Div([
     html.Hr(className="mt-5"),
     html.H6("Re-categorise Existing Expenses", className="mb-1"),
     html.P(
-        "Run local AI over all expenses already in the database and update their categories.",
+        "Run Gemini AI over all expenses already in the database and update their categories.",
         className="text-muted small mb-3",
     ),
     dbc.Button("Re-categorise All with AI", id="recategorise-btn", color="secondary", outline=True),
