@@ -150,6 +150,7 @@ layout = dbc.Row([
 @callback(
     Output("chat-history", "children"),
     Output("chat-input", "value"),
+    Output("chat-messages", "data"),
     Output("pending-chat-store", "data"),
     Output("chat-send", "disabled"),
     Output("chat-input", "disabled"),
@@ -163,20 +164,28 @@ layout = dbc.Row([
 def handle_chat_immediate(n_clicks, n_submit, user_input, messages, selected_date):
     """Step 1: show user message + typing indicator instantly, clear input, lock UI."""
     if not user_input or not user_input.strip():
-        return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+        return (
+            dash.no_update,
+            dash.no_update,
+            dash.no_update,
+            dash.no_update,
+            dash.no_update,
+            dash.no_update,
+        )
 
     display_text = user_input.strip() + (f"  [{selected_date[:10]}]" if selected_date else "")
     agent_text = user_input.strip()
     if selected_date:
         agent_text = f"On {selected_date[:10]}: {agent_text}"
 
-    bubbles = [_bubble(m["text"], m["role"] == "user") for m in messages]
-    bubbles.append(_bubble(display_text, is_user=True))
+    updated_messages = (messages or []) + [{"role": "user", "text": display_text}]
+    bubbles = [_bubble(m["text"], m["role"] == "user") for m in updated_messages]
     bubbles.append(_TYPING_INDICATOR)
 
     return (
         bubbles,
         "",   # clear input
+        updated_messages,
         {"agent_text": agent_text, "display_text": display_text, "selected_date": selected_date},
         True,  # disable send button
         True,  # disable input
@@ -200,7 +209,6 @@ def handle_chat_response(pending, messages):
         return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
 
     agent_text = pending["agent_text"]
-    display_text = pending["display_text"]
     selected_date = pending.get("selected_date")
 
     count_before = len(fetch_expenses())
@@ -220,10 +228,7 @@ def handle_chat_response(pending, messages):
                 "try a clearer format like '€12.50 at Edeka' or '€5 beer'."
             )
 
-    updated_messages = messages + [
-        {"role": "user", "text": display_text},
-        {"role": "agent", "text": response},
-    ]
+    updated_messages = (messages or []) + [{"role": "agent", "text": response}]
 
     bubbles = [_bubble(m["text"], m["role"] == "user") for m in updated_messages]
 
