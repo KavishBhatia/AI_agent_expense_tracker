@@ -66,7 +66,7 @@ layout = html.Div([
     prevent_initial_call=True,
 )
 def process_receipt(contents, filename):
-    """Parse receipt image with local vision model; write result to store."""
+    """Parse receipt image with Gemini vision model; write result to store."""
     if not contents:
         return dash.no_update, dash.no_update
     _, b64 = contents.split(",", 1)
