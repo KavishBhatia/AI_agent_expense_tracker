@@ -194,7 +194,7 @@ def handle_chat_immediate(n_clicks, n_submit, user_input, messages, selected_dat
 
 @callback(
     Output("chat-history", "children", allow_duplicate=True),
-    Output("chat-messages", "data"),
+    Output("chat-messages", "data", allow_duplicate=True),
     Output("recent-expenses-list", "children"),
     Output("pending-chat-store", "data", allow_duplicate=True),
     Output("chat-send", "disabled", allow_duplicate=True),
