@@ -214,7 +214,8 @@ def handle_chat_response(pending, messages):
                 f"{last['description']} €{last['amount']:.2f} [{last['category']}]"
             )
         else:
-            fallback = _try_fallback_parse(agent_text, selected_date)
+            fallback_text = re.sub(r"^On \d{4}-\d{2}-\d{2}: ", "", agent_text)
+            fallback = _try_fallback_parse(fallback_text, selected_date)
             response = fallback if fallback else (
                 "⚠️ AI unavailable. Could not auto-parse — "
                 "try a clearer format like '€12.50 at Edeka' or '€5 beer'."
