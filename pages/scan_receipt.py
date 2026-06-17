@@ -1,6 +1,7 @@
 # pages/scan_receipt.py
 import base64
 from collections import Counter
+from datetime import date as _date
 
 import dash
 import dash_bootstrap_components as dbc
@@ -15,10 +16,10 @@ dash.register_page(__name__, path="/scan", name="Scan Receipt")
 layout = html.Div([
     html.H5("Scan a Receipt", className="mb-3"),
     html.P(
-        "Upload a photo of your receipt. Gemini will extract the items automatically.",
+        "Upload a photo of your receipt. AI will extract the items automatically.",
         className="text-muted mb-4",
     ),
-    # Loading wraps the upload + parse-trigger so spinner shows during Gemini call
+    # Loading wraps the upload + parse-trigger so spinner shows during AI call
     dcc.Loading(
         [
             dcc.Upload(
@@ -65,7 +66,7 @@ layout = html.Div([
     prevent_initial_call=True,
 )
 def process_receipt(contents, filename):
-    """Parse receipt image with Gemini; write result to store."""
+    """Parse receipt image with Gemini vision model; write result to store."""
     if not contents:
         return dash.no_update, dash.no_update
     _, b64 = contents.split(",", 1)
@@ -125,8 +126,14 @@ def render_review(store_data):
             dbc.Row([
                 dbc.Col([html.Label("Store", className="small fw-semibold"),
                          dbc.Input(id="receipt-merchant", value=store_data["merchant"])], md=4),
-                dbc.Col([html.Label("Date", className="small fw-semibold"),
-                         dbc.Input(id="receipt-date", value=store_data["date"])], md=4),
+                dbc.Col([
+                    html.Label("Date", className="small fw-semibold"),
+                    dbc.InputGroup([
+                        dbc.Input(id="receipt-date", value=store_data["date"]),
+                        dbc.Button("Today", id="receipt-use-today-btn", color="secondary",
+                                   outline=True, size="sm", n_clicks=0),
+                    ]),
+                ], md=4),
                 dbc.Col([html.Label("Total (€)", className="small fw-semibold"),
                          dbc.Input(id="receipt-total", value=str(store_data["total"]), type="number")], md=4),
             ], className="mb-3"),
@@ -165,6 +172,18 @@ def sync_edits(items, merchant, date, total, current_edit):
         "date": date or current_edit.get("date", ""),
         "total": total if total is not None else current_edit.get("total", 0),
     }
+
+
+@callback(
+    Output("receipt-date", "value", allow_duplicate=True),
+    Input("receipt-use-today-btn", "n_clicks"),
+    prevent_initial_call=True,
+)
+def use_today_date(n_clicks):
+    """Set the date field to today when the user clicks Today."""
+    if not n_clicks:
+        return dash.no_update
+    return _date.today().isoformat()
 
 
 @callback(
