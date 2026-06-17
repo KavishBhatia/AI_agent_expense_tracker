@@ -41,17 +41,14 @@ def _infer_category(text: str) -> str:
 
 def _try_fallback_parse(raw_text: str, selected_date: str | None) -> str | None:
     """Regex-based expense parser used when the AI API is unavailable."""
-    # Amount: €12.50 / 12,50 / 12.5
     amt_m = re.search(r"€?\s*(\d+[.,]\d{1,2}|\d+(?=\s*€)|\d+)", raw_text, re.IGNORECASE)
     if not amt_m:
         return None
     amount = float(amt_m.group(1).replace(",", "."))
 
-    # Merchant: "at Edeka" / "from Rewe" / "bei Lidl"
     merch_m = re.search(r"\b(?:at|from|bei|@)\s+([A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß0-9\s&-]{0,30}?)(?:\s+on\b|\s*$|,)", raw_text, re.IGNORECASE)
     merchant = merch_m.group(1).strip() if merch_m else None
 
-    # Date resolution: prefer date picker, then parse "on DD/MM(/YYYY)"
     expense_date = selected_date[:10] if selected_date else None
     if not expense_date:
         date_m = re.search(r"\bon\s+(\d{1,2}[/.\-]\d{1,2}(?:[/.\-]\d{2,4})?)", raw_text, re.IGNORECASE)
@@ -80,6 +77,30 @@ def _try_fallback_parse(raw_text: str, selected_date: str | None) -> str | None:
         date=expense_date,
     )
     return f"⚠️ AI unavailable (rate limit hit). Added directly:\n{result}"
+
+
+def _bubble(text: str, is_user: bool):
+    return html.Div(text, style={
+        "background": "#0d6efd" if is_user else "#e9ecef",
+        "color": "white" if is_user else "#333",
+        "padding": "8px 12px",
+        "borderRadius": "12px",
+        "marginBottom": "8px",
+        "maxWidth": "85%",
+        "marginLeft": "auto" if is_user else "0",
+        "fontSize": "14px",
+        "whiteSpace": "pre-wrap",
+    })
+
+
+_TYPING_INDICATOR = html.Div(
+    [html.Span(className="typing-dot"),
+     html.Span(className="typing-dot"),
+     html.Span(className="typing-dot")],
+    className="typing-indicator",
+    id="typing-indicator",
+)
+
 
 layout = dbc.Row([
     # Left: chat panel
@@ -116,6 +137,7 @@ layout = dbc.Row([
             ], md=8),
         ]),
         dcc.Store(id="chat-messages", data=[]),
+        dcc.Store(id="pending-chat-store"),
     ], md=7),
 
     # Right: recent expenses
@@ -128,9 +150,8 @@ layout = dbc.Row([
 
 @callback(
     Output("chat-history", "children"),
-    Output("chat-messages", "data"),
     Output("chat-input", "value"),
-    Output("recent-expenses-list", "children"),
+    Output("pending-chat-store", "data"),
     Input("chat-send", "n_clicks"),
     Input("chat-input", "n_submit"),
     State("chat-input", "value"),
@@ -138,20 +159,49 @@ layout = dbc.Row([
     State("expense-date-picker", "date"),
     prevent_initial_call=True,
 )
-def handle_chat(n_clicks, n_submit, user_input, messages, selected_date):
+def handle_chat_immediate(n_clicks, n_submit, user_input, messages, selected_date):
+    """Step 1: show user message + typing indicator instantly, clear input."""
     if not user_input or not user_input.strip():
+        return dash.no_update, dash.no_update, dash.no_update
+
+    display_text = user_input.strip() + (f"  [{selected_date[:10]}]" if selected_date else "")
+    agent_text = user_input.strip()
+    if selected_date:
+        agent_text = f"On {selected_date[:10]}: {agent_text}"
+
+    bubbles = [_bubble(m["text"], m["role"] == "user") for m in messages]
+    bubbles.append(_bubble(display_text, is_user=True))
+    bubbles.append(_TYPING_INDICATOR)
+
+    return (
+        bubbles,
+        "",   # clear input
+        {"agent_text": agent_text, "display_text": display_text, "selected_date": selected_date},
+    )
+
+
+@callback(
+    Output("chat-history", "children", allow_duplicate=True),
+    Output("chat-messages", "data"),
+    Output("recent-expenses-list", "children"),
+    Output("pending-chat-store", "data", allow_duplicate=True),
+    Input("pending-chat-store", "data"),
+    State("chat-messages", "data"),
+    prevent_initial_call=True,
+)
+def handle_chat_response(pending, messages):
+    """Step 2: call the agent, replace typing indicator with response."""
+    if not pending:
         return dash.no_update, dash.no_update, dash.no_update, dash.no_update
 
-    text = user_input.strip()
-    if selected_date:
-        text = f"On {selected_date[:10]}: {text}"
+    agent_text = pending["agent_text"]
+    display_text = pending["display_text"]
+    selected_date = pending.get("selected_date")
 
     count_before = len(fetch_expenses())
     try:
-        response = agent_bridge.chat(text)
+        response = agent_bridge.chat(agent_text)
     except Exception:
-        # Guard: if the agent tool already saved the expense before the API error,
-        # skip the fallback to avoid a double-add.
         if len(fetch_expenses()) > count_before:
             last = fetch_expenses()[-1]
             response = (
@@ -159,32 +209,18 @@ def handle_chat(n_clicks, n_submit, user_input, messages, selected_date):
                 f"{last['description']} €{last['amount']:.2f} [{last['category']}]"
             )
         else:
-            fallback = _try_fallback_parse(user_input.strip(), selected_date)
+            fallback = _try_fallback_parse(agent_text, selected_date)
             response = fallback if fallback else (
-                "⚠️ AI unavailable (rate limit hit). Could not auto-parse — "
+                "⚠️ AI unavailable. Could not auto-parse — "
                 "try a clearer format like '€12.50 at Edeka' or '€5 beer'."
             )
 
-    messages = messages + [
-        {"role": "user", "text": user_input.strip() + (f"  [{selected_date[:10]}]" if selected_date else "")},
+    updated_messages = messages + [
+        {"role": "user", "text": display_text},
         {"role": "agent", "text": response},
     ]
 
-    bubbles = []
-    for msg in messages:
-        is_user = msg["role"] == "user"
-        bubbles.append(
-            html.Div(msg["text"], style={
-                "background": "#0d6efd" if is_user else "#e9ecef",
-                "color": "white" if is_user else "#333",
-                "padding": "8px 12px",
-                "borderRadius": "12px",
-                "marginBottom": "8px",
-                "maxWidth": "85%",
-                "marginLeft": "auto" if is_user else "0",
-                "fontSize": "14px",
-            })
-        )
+    bubbles = [_bubble(m["text"], m["role"] == "user") for m in updated_messages]
 
     def _fmt(iso):
         try:
@@ -205,4 +241,4 @@ def handle_chat(n_clicks, n_submit, user_input, messages, selected_date):
     ]
     recent_list = dbc.ListGroup(recent_items) if recent_items else html.P("No expenses yet.", className="text-muted")
 
-    return bubbles, messages, "", recent_list
+    return bubbles, updated_messages, recent_list, None
