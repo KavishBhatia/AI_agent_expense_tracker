@@ -98,7 +98,6 @@ _TYPING_INDICATOR = html.Div(
      html.Span(className="typing-dot"),
      html.Span(className="typing-dot")],
     className="typing-indicator",
-    id="typing-indicator",
 )
 
 
