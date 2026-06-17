@@ -152,6 +152,8 @@ layout = dbc.Row([
     Output("chat-history", "children"),
     Output("chat-input", "value"),
     Output("pending-chat-store", "data"),
+    Output("chat-send", "disabled"),
+    Output("chat-input", "disabled"),
     Input("chat-send", "n_clicks"),
     Input("chat-input", "n_submit"),
     State("chat-input", "value"),
@@ -160,9 +162,9 @@ layout = dbc.Row([
     prevent_initial_call=True,
 )
 def handle_chat_immediate(n_clicks, n_submit, user_input, messages, selected_date):
-    """Step 1: show user message + typing indicator instantly, clear input."""
+    """Step 1: show user message + typing indicator instantly, clear input, lock UI."""
     if not user_input or not user_input.strip():
-        return dash.no_update, dash.no_update, dash.no_update
+        return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
 
     display_text = user_input.strip() + (f"  [{selected_date[:10]}]" if selected_date else "")
     agent_text = user_input.strip()
@@ -177,6 +179,8 @@ def handle_chat_immediate(n_clicks, n_submit, user_input, messages, selected_dat
         bubbles,
         "",   # clear input
         {"agent_text": agent_text, "display_text": display_text, "selected_date": selected_date},
+        True,  # disable send button
+        True,  # disable input
     )
 
 
@@ -185,14 +189,16 @@ def handle_chat_immediate(n_clicks, n_submit, user_input, messages, selected_dat
     Output("chat-messages", "data"),
     Output("recent-expenses-list", "children"),
     Output("pending-chat-store", "data", allow_duplicate=True),
+    Output("chat-send", "disabled", allow_duplicate=True),
+    Output("chat-input", "disabled", allow_duplicate=True),
     Input("pending-chat-store", "data"),
     State("chat-messages", "data"),
     prevent_initial_call=True,
 )
 def handle_chat_response(pending, messages):
-    """Step 2: call the agent, replace typing indicator with response."""
+    """Step 2: call the agent, replace typing indicator with response, unlock UI."""
     if not pending:
-        return dash.no_update, dash.no_update, dash.no_update, dash.no_update
+        return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
 
     agent_text = pending["agent_text"]
     display_text = pending["display_text"]
@@ -241,4 +247,4 @@ def handle_chat_response(pending, messages):
     ]
     recent_list = dbc.ListGroup(recent_items) if recent_items else html.P("No expenses yet.", className="text-muted")
 
-    return bubbles, updated_messages, recent_list, None
+    return bubbles, updated_messages, recent_list, None, False, False
