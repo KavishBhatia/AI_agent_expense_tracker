@@ -215,8 +215,9 @@ def handle_chat_response(pending, messages):
     try:
         response = agent_bridge.chat(agent_text)
     except Exception:
-        if len(fetch_expenses()) > count_before:
-            last = fetch_expenses()[-1]
+        expenses_after = fetch_expenses()
+        if len(expenses_after) > count_before:
+            last = expenses_after[-1]
             response = (
                 f"⚠️ AI hit an error but your expense was saved: "
                 f"{last['description']} €{last['amount']:.2f} [{last['category']}]"
