@@ -19,7 +19,7 @@ Recent Transactions moves from the Dashboard to this page.
 
 ### Section 1 — Category Insights
 
-A category dropdown (default: "All Categories") drives three stat cards below it:
+A category dropdown (default: "Groceries") drives three stat cards below it:
 
 | Card | Content |
 |------|---------|
