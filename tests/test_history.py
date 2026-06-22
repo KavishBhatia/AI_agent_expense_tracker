@@ -62,6 +62,16 @@ class TestComputeMonthlyAvg(unittest.TestCase):
         result = compute_monthly_avg(rows, "Groceries", n_months=3)
         self.assertAlmostEqual(result, 0.0)
 
+    def test_excludes_months_older_than_n_months(self):
+        # A row from 6 months ago should NOT be included in a 3-month window
+        today = date.today()
+        old_month = today.replace(day=1)
+        for _ in range(6):
+            old_month = (old_month - timedelta(days=1)).replace(day=1)
+        rows = [_row(old_month.isoformat(), "Groceries", 500.0)]
+        result = compute_monthly_avg(rows, "Groceries", n_months=3)
+        self.assertAlmostEqual(result, 0.0)
+
 
 class TestLastPurchaseInfo(unittest.TestCase):
 

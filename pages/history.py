@@ -42,10 +42,14 @@ def compute_monthly_avg(rows: list[dict], category: str, n_months: int = 3) -> f
         return 0.0
     today = date.today()
     current_month_start = today.replace(day=1)
+    # Walk back n_months to find the cutoff (e.g. 3 months back from today's month)
+    cutoff = current_month_start
+    for _ in range(n_months):
+        cutoff = (cutoff - timedelta(days=1)).replace(day=1)
     monthly: dict[tuple, float] = {}
     for r in filtered:
         d = date.fromisoformat(r["date"])
-        if d >= current_month_start:
+        if d >= current_month_start or d < cutoff:
             continue
         key = (d.year, d.month)
         monthly[key] = monthly.get(key, 0.0) + r["amount"]
