@@ -15,47 +15,42 @@ dash.register_page(__name__, path="/history", name="History")
 
 # ── Pure stat helpers ─────────────────────────────────────────────────────────
 
-def compute_weekly_avg(rows: list[dict], category: str, n_weeks: int = 8) -> float:
-    """Average weekly spend for `category` over the last `n_weeks` complete weeks."""
+def compute_weekly_avg(rows: list[dict], category: str) -> float:
+    """Average Mon–Sun weekly spend for `category` across all complete weeks with data."""
     filtered = [r for r in rows if r["category"] == category]
     if not filtered:
         return 0.0
     today = date.today()
     current_monday = today - timedelta(days=today.weekday())
-    cutoff = current_monday - timedelta(weeks=n_weeks)
     weekly: dict[tuple, float] = {}
     for r in filtered:
         d = date.fromisoformat(r["date"])
-        if d >= current_monday or d < cutoff:
+        if d >= current_monday:  # exclude current incomplete week
             continue
-        week_key = d.isocalendar()[:2]  # (year, isoweek)
+        week_key = d.isocalendar()[:2]  # (year, ISO-week) — ISO weeks are Mon–Sun
         weekly[week_key] = weekly.get(week_key, 0.0) + r["amount"]
     if not weekly:
         return 0.0
-    return sum(weekly.values()) / n_weeks
+    return sum(weekly.values()) / len(weekly)
 
 
-def compute_monthly_avg(rows: list[dict], category: str, n_months: int = 3) -> float:
-    """Average monthly spend for `category` over the last `n_months` complete months."""
+def compute_monthly_avg(rows: list[dict], category: str) -> float:
+    """Average 1st–last-day monthly spend for `category` across all complete months with data."""
     filtered = [r for r in rows if r["category"] == category]
     if not filtered:
         return 0.0
     today = date.today()
     current_month_start = today.replace(day=1)
-    # Walk back n_months to find the cutoff (e.g. 3 months back from today's month)
-    cutoff = current_month_start
-    for _ in range(n_months):
-        cutoff = (cutoff - timedelta(days=1)).replace(day=1)
     monthly: dict[tuple, float] = {}
     for r in filtered:
         d = date.fromisoformat(r["date"])
-        if d >= current_month_start or d < cutoff:
+        if d >= current_month_start:  # exclude current incomplete month
             continue
         key = (d.year, d.month)
         monthly[key] = monthly.get(key, 0.0) + r["amount"]
     if not monthly:
         return 0.0
-    return sum(monthly.values()) / n_months
+    return sum(monthly.values()) / len(monthly)
 
 
 def last_purchase_info(rows: list[dict], category: str) -> dict | None:
@@ -173,8 +168,8 @@ def update_stat_cards(category: str):
         last_text = "No purchases yet"
         last_sub = ""
     cards = dbc.Row([
-        _stat_card("Avg / Week", f"€{avg_week:.2f}", "last 8 complete weeks"),
-        _stat_card("Avg / Month", f"€{avg_month:.2f}", "last 3 complete months"),
+        _stat_card("Avg / Week", f"€{avg_week:.2f}", "Mon–Sun, all time"),
+        _stat_card("Avg / Month", f"€{avg_month:.2f}", "1st–last day, all time"),
         _stat_card("Last Purchase", last_text, last_sub),
     ])
     return cards, category

@@ -19,22 +19,21 @@ class TestComputeWeeklyAvg(unittest.TestCase):
         rows = [_row("2026-01-05", "Transport", 10.0)]
         self.assertEqual(compute_weekly_avg(rows, "Groceries"), 0.0)
 
-    def test_averages_complete_weeks_only(self):
-        # Two complete past weeks each with €20 → 40 / 8 windows = 5.0
+    def test_averages_across_complete_weeks(self):
+        # Two complete past weeks: €20 and €40 → avg = (20+40)/2 = 30
         monday_last = date.today() - timedelta(days=date.today().weekday() + 7)
         monday_prev = monday_last - timedelta(weeks=1)
         rows = [
             _row(monday_last.isoformat(), "Groceries", 20.0),
-            _row(monday_prev.isoformat(), "Groceries", 20.0),
+            _row(monday_prev.isoformat(), "Groceries", 40.0),
         ]
-        result = compute_weekly_avg(rows, "Groceries", n_weeks=8)
-        self.assertAlmostEqual(result, 5.0)
+        result = compute_weekly_avg(rows, "Groceries")
+        self.assertAlmostEqual(result, 30.0)
 
     def test_excludes_current_incomplete_week(self):
-        # A row dated today (current week) should not be counted
         today_str = date.today().isoformat()
         rows = [_row(today_str, "Groceries", 100.0)]
-        result = compute_weekly_avg(rows, "Groceries", n_weeks=8)
+        result = compute_weekly_avg(rows, "Groceries")
         self.assertAlmostEqual(result, 0.0)
 
 
@@ -43,34 +42,35 @@ class TestComputeMonthlyAvg(unittest.TestCase):
     def test_returns_zero_when_no_rows(self):
         self.assertEqual(compute_monthly_avg([], "Groceries"), 0.0)
 
-    def test_averages_over_n_months(self):
+    def test_averages_across_complete_months(self):
+        # Three months: €30 each → avg = 30
         today = date.today()
         m1 = (today.replace(day=1) - timedelta(days=1)).replace(day=1)
         m2 = (m1 - timedelta(days=1)).replace(day=1)
         m3 = (m2 - timedelta(days=1)).replace(day=1)
         rows = [
             _row(m1.isoformat(), "Groceries", 30.0),
-            _row(m2.isoformat(), "Groceries", 30.0),
-            _row(m3.isoformat(), "Groceries", 30.0),
+            _row(m2.isoformat(), "Groceries", 60.0),
+            _row(m3.isoformat(), "Groceries", 90.0),
         ]
-        result = compute_monthly_avg(rows, "Groceries", n_months=3)
-        self.assertAlmostEqual(result, 30.0)
+        result = compute_monthly_avg(rows, "Groceries")
+        self.assertAlmostEqual(result, 60.0)  # (30+60+90)/3
 
     def test_excludes_current_month(self):
         today_str = date.today().isoformat()
         rows = [_row(today_str, "Groceries", 999.0)]
-        result = compute_monthly_avg(rows, "Groceries", n_months=3)
+        result = compute_monthly_avg(rows, "Groceries")
         self.assertAlmostEqual(result, 0.0)
 
-    def test_excludes_months_older_than_n_months(self):
-        # A row from 6 months ago should NOT be included in a 3-month window
+    def test_includes_all_historical_months(self):
+        # A row from 6 months ago IS included (no cutoff)
         today = date.today()
         old_month = today.replace(day=1)
         for _ in range(6):
             old_month = (old_month - timedelta(days=1)).replace(day=1)
-        rows = [_row(old_month.isoformat(), "Groceries", 500.0)]
-        result = compute_monthly_avg(rows, "Groceries", n_months=3)
-        self.assertAlmostEqual(result, 0.0)
+        rows = [_row(old_month.isoformat(), "Groceries", 120.0)]
+        result = compute_monthly_avg(rows, "Groceries")
+        self.assertAlmostEqual(result, 120.0)  # 1 month, €120 → avg = 120
 
 
 class TestLastPurchaseInfo(unittest.TestCase):
