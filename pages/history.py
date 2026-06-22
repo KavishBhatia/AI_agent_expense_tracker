@@ -2,6 +2,7 @@
 from datetime import date, timedelta
 
 import json
+import re
 
 import dash
 import dash_bootstrap_components as dbc
@@ -197,6 +198,14 @@ def update_stat_cards(category: str, _deleted, _cat_updated):
 _PAGE_SIZE = 10
 
 
+def _parse_page_info(page_info: str | None) -> tuple[int, int]:
+    """Return current page and total pages parsed from 'Page X of Y' text."""
+    match = re.search(r"Page\s+(\d+)\s+of\s+(\d+)", page_info or "")
+    if not match:
+        return 1, 1
+    return int(match.group(1)), int(match.group(2))
+
+
 @callback(
     Output("history-results-count", "children"),
     Output("history-table", "children"),
@@ -276,21 +285,23 @@ def update_table(category: str, keyword: str, _deleted, _cat_updated, page_num):
 @callback(
     Output("history-page-num", "data"),
     Input("history-prev-btn", "n_clicks"),
-    State("history-page-num", "data"),
+    State("history-page-info", "children"),
     prevent_initial_call=True,
 )
-def go_prev(n_clicks, current_page):
-    return max(1, (current_page or 1) - 1)
+def go_prev(n_clicks, page_info):
+    page, _ = _parse_page_info(page_info)
+    return max(1, page - 1)
 
 
 @callback(
     Output("history-page-num", "data", allow_duplicate=True),
     Input("history-next-btn", "n_clicks"),
-    State("history-page-num", "data"),
+    State("history-page-info", "children"),
     prevent_initial_call=True,
 )
-def go_next(n_clicks, current_page):
-    return (current_page or 1) + 1
+def go_next(n_clicks, page_info):
+    page, total_pages = _parse_page_info(page_info)
+    return min(total_pages, page + 1)
 
 
 @callback(
