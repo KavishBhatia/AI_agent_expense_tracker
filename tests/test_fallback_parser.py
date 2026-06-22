@@ -73,16 +73,9 @@ class TestTryFallbackParse(unittest.TestCase):
         self.assertAlmostEqual(kwargs["amount"], 1.55,
                                msg="Year 2026 must NOT be parsed as the amount")
 
-    def test_year_is_amount_without_strip(self):
-        """
-        Documents the bug: passing the raw prefixed string directly to
-        _try_fallback_parse would produce amount=2026, not 1.55.
-        This test confirms the function itself has no special-case for the
-        prefix — the caller must strip before calling.
-        """
-        kwargs, _ = self._run("On 2026-06-17: 1.55 beer")
-        self.assertAlmostEqual(kwargs["amount"], 2026.0,
-                               msg="Without stripping, the year is matched as the amount")
+    # NOTE: _try_fallback_parse assumes the caller strips "On YYYY-MM-DD: " prefixes.
+    # We intentionally don't assert the buggy/unstripped behavior here, to avoid
+    # locking that behavior in with a regression test.
 
     def test_strip_regex_is_anchored(self):
         """Strip regex must only remove the prefix, not affect mid-string dates."""
