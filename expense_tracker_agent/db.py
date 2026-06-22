@@ -108,6 +108,22 @@ def fetch_expense_items(parent_id: int) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def fetch_expense_items_by_parent_ids(parent_ids: list[int]) -> dict[int, list[dict]]:
+    if not parent_ids:
+        return {}
+    placeholders = ",".join("?" for _ in parent_ids)
+    with _conn() as conn:
+        rows = conn.execute(
+            f"SELECT * FROM expense_items WHERE parent_id IN ({placeholders}) ORDER BY parent_id, id",
+            parent_ids,
+        ).fetchall()
+    grouped: dict[int, list[dict]] = {pid: [] for pid in parent_ids}
+    for row in rows:
+        item = dict(row)
+        grouped[item["parent_id"]].append(item)
+    return grouped
+
+
 def expense_exists(date: str, merchant: str, amount: float) -> bool:
     with _conn() as conn:
         row = conn.execute(

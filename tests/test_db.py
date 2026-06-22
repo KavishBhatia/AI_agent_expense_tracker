@@ -11,6 +11,7 @@ import expense_tracker_agent.db as db_module
 from expense_tracker_agent.db import (
     expense_exists,
     fetch_expense_items,
+    fetch_expense_items_by_parent_ids,
     fetch_expenses,
     find_parent_expense,
     init_db,
@@ -105,6 +106,18 @@ class TestInsertExpenseItem(BaseDbTest):
         parent_id = insert_expense(10.0, "Groceries", "shop")
         item_id = insert_expense_item(parent_id, 2.0, "bread", "Groceries")
         self.assertIsInstance(item_id, int)
+
+    def test_fetch_items_by_parent_ids_groups_results(self):
+        parent_a = insert_expense(10.0, "Groceries", "A")
+        parent_b = insert_expense(12.0, "Groceries", "B")
+        insert_expense_item(parent_a, 2.0, "bread", "Groceries")
+        insert_expense_item(parent_b, 3.0, "milk", "Groceries")
+        insert_expense_item(parent_a, 1.5, "eggs", "Groceries")
+
+        grouped = fetch_expense_items_by_parent_ids([parent_a, parent_b])
+
+        self.assertEqual([i["description"] for i in grouped[parent_a]], ["bread", "eggs"])
+        self.assertEqual([i["description"] for i in grouped[parent_b]], ["milk"])
 
 
 class TestFetchExpenses(BaseDbTest):
