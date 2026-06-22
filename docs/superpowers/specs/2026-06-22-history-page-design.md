@@ -23,8 +23,8 @@ A category dropdown (default: "Groceries") drives three stat cards below it:
 
 | Card | Content |
 |------|---------|
-| **Avg / Week** | Mean weekly spend for selected category, computed over last 8 complete weeks |
-| **Avg / Month** | Mean monthly spend, over last 3 complete months; badge shows % change vs previous period |
+| **Avg / Week** | Mean weekly spend for selected category, computed over all complete Mon–Sun weeks with data |
+| **Avg / Month** | Mean monthly spend for selected category, computed over all complete calendar months with data |
 | **Last Purchase** | Most recent transaction in that category — date, store name, amount + days-ago string |
 
 When "All Categories" is selected the stat cards are hidden (averages are only meaningful per-category).
