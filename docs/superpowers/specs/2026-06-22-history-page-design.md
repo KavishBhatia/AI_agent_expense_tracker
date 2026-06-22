@@ -60,9 +60,9 @@ Weekly / monthly averages are computed in Python:
 
 | File | Change |
 |------|--------|
-| `pages/history.py` | New page — layout + 2 callbacks |
+| `pages/history.py` | New page — layout + callbacks |
 | `pages/dashboard.py` | Remove recent transactions section, add "→ View History" link |
-| `app.py` | No change needed — Dash auto-discovers pages in the `pages/` directory |
+| `app.py` | Add History nav link; lift delete/undo stores + toast into app layout so they persist across pages |
 
 ---
 
