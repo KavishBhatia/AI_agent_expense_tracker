@@ -81,23 +81,6 @@ _TOAST_HIDDEN = {"position": "fixed", "bottom": "20px", "right": "20px",
 _TOAST_VISIBLE = {**_TOAST_HIDDEN, "display": "block"}
 
 layout = html.Div([
-    dcc.Store(id="expense-deleted-store"),
-    dcc.Store(id="last-deleted-store"),   # {"id": int, "merchant": str, "amount": float}
-    # Undo toast — always in the DOM, shown/hidden via style
-    html.Div(
-        id="undo-toast-container",
-        style=_TOAST_HIDDEN,
-        children=dbc.Alert(
-            [
-                html.Span(id="undo-toast-text", className="me-3 small"),
-                dbc.Button("Undo", id="undo-expense-btn", size="sm", n_clicks=0,
-                           style={"backgroundColor": "#0d9488", "borderColor": "#0d9488",
-                                  "color": "#fff"}),
-            ],
-            color="dark",
-            className="d-flex align-items-center mb-0 py-2 shadow",
-        ),
-    ),
     dbc.Row([
         dbc.Col(
             dbc.Select(

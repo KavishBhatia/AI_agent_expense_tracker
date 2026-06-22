@@ -1,0 +1,87 @@
+# History Page — Design Spec
+
+**Date:** 2026-06-22  
+**Status:** Approved
+
+---
+
+## Goal
+
+Add a dedicated **History** page (`/history`) to the sidebar that lets the user:
+1. See average weekly and monthly spending for any category (e.g. Groceries)
+2. Browse and search all past transactions by category and keyword — answering questions like "when did I last buy protein powder?"
+
+Recent Transactions moves from the Dashboard to this page.
+
+---
+
+## Page Layout
+
+### Section 1 — Category Insights
+
+A category dropdown (default: "All Categories") drives three stat cards below it:
+
+| Card | Content |
+|------|---------|
+| **Avg / Week** | Mean weekly spend for selected category, computed over last 8 complete weeks |
+| **Avg / Month** | Mean monthly spend, over last 3 complete months; badge shows % change vs previous period |
+| **Last Purchase** | Most recent transaction in that category — date, store name, amount + days-ago string |
+
+When "All Categories" is selected the stat cards are hidden (averages are only meaningful per-category).
+
+Clicking a category in the dropdown also syncs the Transaction Browser filter below so both sections stay in step.
+
+### Section 2 — Transaction Browser
+
+- **Category dropdown** (same options as above; synced with Section 1 selector)
+- **Keyword search input** — filters on `merchant` and `description` fields, case-insensitive substring match
+- **Results count** label (e.g. "12 transactions found")
+- **Table** columns: Date | Store | Category (badge) | Amount | Description — sorted newest-first
+- Empty state: "No transactions match your search." message
+
+### Dashboard change
+
+Remove the Recent Transactions table and heading from `pages/dashboard.py`. Replace with a small "→ View History" link pointing to `/history`.
+
+---
+
+## Data
+
+No new DB functions are needed. `fetch_expenses()` already returns all non-deleted rows with all required fields. Filtering by category and keyword happens in Python inside the Dash callback.
+
+Weekly / monthly averages are computed in Python:
+- Group rows by ISO week number / year-month
+- Drop the current (incomplete) week/month
+- Average the last 8 complete weeks / last 3 complete months
+
+---
+
+## Files
+
+| File | Change |
+|------|--------|
+| `pages/history.py` | New page — layout + 2 callbacks |
+| `pages/dashboard.py` | Remove recent transactions section, add "→ View History" link |
+| `app.py` | No change needed — Dash auto-discovers pages in the `pages/` directory |
+
+---
+
+## Callbacks
+
+**`update_history(cat, keyword)`**  
+- Inputs: category dropdown value, search input value  
+- State: none  
+- Outputs: stat cards section (hidden or values), results count label, table rows  
+- Triggered on any change to either input
+
+---
+
+## Verification
+
+1. `uv run pytest tests/ -q` — all 69 existing tests pass
+2. Start app: `uv run python app.py`
+3. Navigate to `/history` via sidebar
+4. Select "Groceries" → stat cards appear with correct avg/week, avg/month, last purchase
+5. Type "protein" in search → only matching rows shown
+6. Select "All Categories" → stat cards hide, all transactions shown
+7. Confirm dashboard no longer shows Recent Transactions table
