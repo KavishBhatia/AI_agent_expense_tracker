@@ -234,8 +234,9 @@ def recategorise_all(n_clicks):
     items = []
     for r in rows:
         sub_items = fetch_expense_items(r["id"])
-        sub_desc = ", ".join(i["description"] for i in sub_items)
-        full_desc = f"{r['description']}; {sub_desc}" if sub_desc else r["description"]
+        sub_desc = ", ".join((i.get("description") or "").strip() for i in sub_items if (i.get("description") or "").strip())
+        base_desc = (r.get("description") or "").strip()
+        full_desc = "; ".join([p for p in (base_desc, sub_desc) if p])
         items.append({"description": full_desc, "merchant": r.get("merchant") or ""})
     categories = classify_expenses(items)
 
