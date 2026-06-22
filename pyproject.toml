@@ -9,7 +9,7 @@ description = "An expense tracking agent with Dash dashboard."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "google-adk",
+    "google-adk==2.3.0",
     "pydantic",
     "google-generativeai",
     "dash>=2.14",
@@ -23,3 +23,12 @@ dev = ["pytest>=8.0"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["expense_tracker_agent"]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    # google-adk 2.x uses its own deprecated BaseAgentConfig internally — fired from
+    # frozen abc machinery, so we match by message rather than module path
+    "ignore:BaseAgentConfig is deprecated:DeprecationWarning",
+    # google-adk experimental JSON schema feature — third-party, not actionable
+    "ignore::UserWarning:google.adk",
+]
