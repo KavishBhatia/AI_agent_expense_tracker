@@ -169,8 +169,10 @@ layout = html.Div([
     Output("history-stat-cards", "children"),
     Output("history-filter-cat", "value"),
     Input("history-cat-select", "value"),
+    Input("expense-deleted-store", "data"),
+    Input("history-cat-updated-store", "data"),
 )
-def update_stat_cards(category: str):
+def update_stat_cards(category: str, _deleted, _cat_updated):
     """Update the three stat cards when a category is selected."""
     if not category:
         return html.P("Select a category above to see averages.", className="text-muted small"), ""
