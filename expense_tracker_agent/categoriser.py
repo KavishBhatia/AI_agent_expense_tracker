@@ -38,9 +38,8 @@ _MERCHANT_RULES: dict[str, str] = {
     "müller": "Personal Care",
     "muller": "Personal Care",
     # Pharmacies
-    "apotheke": "Pharmacy",
     # Transport
-    "db ": "Transport",
+    "db": "Transport",
     "deutsche bahn": "Transport",
     "flixbus": "Transport",
     "uber": "Transport",
