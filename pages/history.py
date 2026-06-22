@@ -1,11 +1,13 @@
 # pages/history.py
 from datetime import date, timedelta
 
+import json
+
 import dash
 import dash_bootstrap_components as dbc
-from dash import ALL, Input, Output, callback, html
+from dash import ALL, Input, Output, callback, dcc, html
 
-from expense_tracker_agent.db import fetch_expenses
+from expense_tracker_agent.db import fetch_expenses, update_expense_category
 from expense_tracker_agent.tools import CATEGORIES
 
 dash.register_page(__name__, path="/history", name="History")
@@ -100,6 +102,7 @@ def _days_ago(iso: str) -> str:
 
 
 layout = html.Div([
+    dcc.Store(id="history-cat-updated-store"),
     html.H5("History", className="mb-1"),
     html.P("Browse past transactions and track spending by category.",
            className="text-muted mb-4"),
@@ -179,8 +182,9 @@ def update_stat_cards(category: str):
     Input("history-filter-cat", "value"),
     Input("history-search", "value"),
     Input("expense-deleted-store", "data"),
+    Input("history-cat-updated-store", "data"),
 )
-def update_table(category: str, keyword: str, _deleted):
+def update_table(category: str, keyword: str, _deleted, _cat_updated):
     """Filter and render the transaction table."""
     rows = fetch_expenses()
     kw = (keyword or "").strip().lower()
@@ -209,11 +213,15 @@ def update_table(category: str, keyword: str, _deleted):
                 html.Tr([
                     html.Td(_fmt(r["date"]), className="text-muted small"),
                     html.Td(r.get("merchant") or "—"),
-                    html.Td(html.Span(
-                        r["category"], className="small",
-                        style={"backgroundColor": "#14b8a6", "color": "#fff",
-                               "borderRadius": "4px", "padding": "2px 7px"},
-                    )),
+                    html.Td(
+                        dbc.Select(
+                            id={"type": "hist-cat-select", "index": r["id"]},
+                            options=[{"label": c, "value": c} for c in CATEGORIES],
+                            value=r["category"],
+                            size="sm",
+                            style={"fontSize": "12px", "minWidth": "150px"},
+                        )
+                    ),
                     html.Td(f"€{r['amount']:.2f}", className="fw-semibold text-end"),
                     html.Td(r["description"], className="text-muted small"),
                     html.Td(
@@ -229,3 +237,18 @@ def update_table(category: str, keyword: str, _deleted):
         hover=True, responsive=True, size="sm", className="mb-0",
     )
     return count_text, table
+
+
+@callback(
+    Output("history-cat-updated-store", "data"),
+    Input({"type": "hist-cat-select", "index": ALL}, "value"),
+    prevent_initial_call=True,
+)
+def update_category_inline(values):
+    """Persist an inline category change to the database."""
+    ctx = dash.callback_context
+    for trigger in ctx.triggered:
+        if trigger["value"]:
+            expense_id = json.loads(trigger["prop_id"].split(".")[0])["index"]
+            update_expense_category(expense_id, trigger["value"])
+    return ctx.triggered_id

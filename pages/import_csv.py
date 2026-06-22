@@ -225,16 +225,18 @@ def recategorise_all(n_clicks):
     if not n_clicks:
         return dash.no_update
     from expense_tracker_agent.categoriser import classify_expenses
-    from expense_tracker_agent.db import fetch_expenses, update_expense_category
+    from expense_tracker_agent.db import fetch_expense_items, fetch_expenses, update_expense_category
 
     rows = fetch_expenses()
     if not rows:
         return dbc.Alert("No expenses in the database yet.", color="info", dismissable=True)
 
-    items = [
-        {"description": r["description"], "merchant": r.get("merchant") or ""}
-        for r in rows
-    ]
+    items = []
+    for r in rows:
+        sub_items = fetch_expense_items(r["id"])
+        sub_desc = ", ".join(i["description"] for i in sub_items)
+        full_desc = f"{r['description']}; {sub_desc}" if sub_desc else r["description"]
+        items.append({"description": full_desc, "merchant": r.get("merchant") or ""})
     categories = classify_expenses(items)
 
     for row, cat in zip(rows, categories):
