@@ -52,7 +52,7 @@ No new DB functions are needed. `fetch_expenses()` already returns all non-delet
 Weekly / monthly averages are computed in Python:
 - Group rows by ISO week number / year-month
 - Drop the current (incomplete) week/month
-- Average the last 8 complete weeks / last 3 complete months
+- Average across all complete weeks / complete months with data
 
 ---
 
