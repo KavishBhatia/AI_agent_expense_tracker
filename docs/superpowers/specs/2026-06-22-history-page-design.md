@@ -1,7 +1,7 @@
 # History Page — Design Spec
 
 **Date:** 2026-06-22  
-**Status:** Approved
+**Status:** Implemented — see changelog at end of document
 
 ---
 
@@ -85,3 +85,22 @@ Weekly / monthly averages are computed in Python:
 5. Type "protein" in search → only matching rows shown
 6. Select "All Categories" → stat cards hide, all transactions shown
 7. Confirm dashboard no longer shows Recent Transactions table
+
+---
+
+## Changelog (post-approval changes)
+
+### Average calculation method changed
+Original spec called for last-8-weeks / last-3-months windows. Implemented as **all-time calendar averages**: weekly avg divides by the actual number of complete Mon–Sun weeks with data; monthly avg divides by the actual number of complete 1st–last-day months with data. Subtitles updated to "Mon–Sun, all time" / "1st–last day, all time".
+
+### Default category changed
+Spec said default "All Categories". Changed to **"Groceries"** on both selectors (stat cards and transaction browser) to avoid slow initial load of the full DB on large datasets.
+
+### Transaction browser pagination added
+Replaced "All Categories capped at 20" with proper **10-rows-per-page pagination**: Prev / Next buttons + "Page X of Y" indicator. Filters reset to page 1 on any category or keyword change. Pagination works for all categories, not just "All Categories".
+
+### Inline category editing added
+Category column in the transaction table is a **live `dbc.Select` dropdown** instead of a static badge. Changing it writes to the DB immediately via `update_expense_category`. A `history-cat-updated-store` drives table refresh after each inline edit.
+
+### app.py stores lifted
+`expense-deleted-store`, `last-deleted-store`, and undo toast were moved from `pages/dashboard.py` into `app.py` so delete/undo works from the History page.
