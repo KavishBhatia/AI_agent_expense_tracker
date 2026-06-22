@@ -54,15 +54,20 @@ async def _send_message(message: str) -> str:
     await _ensure_session(runner)
     content = Content(role="user", parts=[Part(text=message)])
     response_text = ""
-    async for event in runner.run_async(
-        user_id=_USER_ID,
-        session_id=_SESSION_ID,
-        new_message=content,
-    ):
-        if hasattr(event, "content") and event.content and event.content.parts:
-            for part in event.content.parts:
-                if hasattr(part, "text") and part.text:
-                    response_text += part.text
+    try:
+        async for event in runner.run_async(
+            user_id=_USER_ID,
+            session_id=_SESSION_ID,
+            new_message=content,
+        ):
+            if hasattr(event, "content") and event.content and event.content.parts:
+                for part in event.content.parts:
+                    if hasattr(part, "text") and part.text:
+                        response_text += part.text
+    except Exception:
+        global _runner
+        _runner = None  # discard session with stale unresponded message
+        raise
     return response_text or "Done."
 
 
