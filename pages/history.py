@@ -5,7 +5,7 @@ import json
 
 import dash
 import dash_bootstrap_components as dbc
-from dash import ALL, Input, Output, callback, dcc, html
+from dash import ALL, Input, Output, State, callback, dcc, html
 
 from expense_tracker_agent.db import fetch_expenses, update_expense_category
 from expense_tracker_agent.tools import CATEGORIES
@@ -102,6 +102,7 @@ def _days_ago(iso: str) -> str:
 
 layout = html.Div([
     dcc.Store(id="history-cat-updated-store"),
+    dcc.Store(id="history-page-num", data=1),
     html.H5("History", className="mb-1"),
     html.P("Browse past transactions and track spending by category.",
            className="text-muted mb-4"),
@@ -142,6 +143,22 @@ layout = html.Div([
         ], className="mb-3"),
         html.Div(id="history-results-count", className="text-muted small mb-2"),
         html.Div(id="history-table"),
+        dbc.Row([
+            dbc.Col(
+                dbc.Button("← Prev", id="history-prev-btn", color="outline-secondary",
+                           size="sm", disabled=True),
+                width="auto",
+            ),
+            dbc.Col(
+                html.Span(id="history-page-info", className="text-muted small"),
+                width="auto", className="d-flex align-items-center",
+            ),
+            dbc.Col(
+                dbc.Button("Next →", id="history-next-btn", color="outline-secondary",
+                           size="sm", disabled=True),
+                width="auto",
+            ),
+        ], className="mt-3 justify-content-center g-2", align="center"),
     ])),
 ])
 
@@ -175,16 +192,23 @@ def update_stat_cards(category: str):
     return cards, category
 
 
+_PAGE_SIZE = 10
+
+
 @callback(
     Output("history-results-count", "children"),
     Output("history-table", "children"),
+    Output("history-page-info", "children"),
+    Output("history-prev-btn", "disabled"),
+    Output("history-next-btn", "disabled"),
     Input("history-filter-cat", "value"),
     Input("history-search", "value"),
     Input("expense-deleted-store", "data"),
     Input("history-cat-updated-store", "data"),
+    Input("history-page-num", "data"),
 )
-def update_table(category: str, keyword: str, _deleted, _cat_updated):
-    """Filter and render the transaction table."""
+def update_table(category: str, keyword: str, _deleted, _cat_updated, page_num):
+    """Filter and render the transaction table with pagination."""
     rows = fetch_expenses()
     kw = (keyword or "").strip().lower()
     filtered = [
@@ -195,17 +219,22 @@ def update_table(category: str, keyword: str, _deleted, _cat_updated):
     ]
     filtered.sort(key=lambda r: r["date"], reverse=True)
 
-    # Cap "All Categories" view to avoid loading the entire DB at once
-    if not category:
-        filtered = filtered[:20]
+    total = len(filtered)
+    total_pages = max(1, (total + _PAGE_SIZE - 1) // _PAGE_SIZE)
+    page = max(1, min(page_num or 1, total_pages))
+    page_rows = filtered[(page - 1) * _PAGE_SIZE : page * _PAGE_SIZE]
 
-    if not filtered:
-        return "0 transactions found", html.P(
-            "No transactions match your search.", className="text-muted small mt-2"
+    if not page_rows:
+        return (
+            "0 transactions found",
+            html.P("No transactions match your search.", className="text-muted small mt-2"),
+            "",
+            True,
+            True,
         )
 
-    n = len(filtered)
-    count_text = f"{n} transaction{'s' if n != 1 else ''} found"
+    count_text = f"{total} transaction{'s' if total != 1 else ''} found"
+    page_info = f"Page {page} of {total_pages}"
     table = dbc.Table(
         [
             html.Thead(html.Tr([
@@ -234,12 +263,42 @@ def update_table(category: str, keyword: str, _deleted, _cat_updated):
                         className="text-center",
                     ),
                 ])
-                for r in filtered
+                for r in page_rows
             ]),
         ],
         hover=True, responsive=True, size="sm", className="mb-0",
     )
-    return count_text, table
+    return count_text, table, page_info, page <= 1, page >= total_pages
+
+
+@callback(
+    Output("history-page-num", "data"),
+    Input("history-prev-btn", "n_clicks"),
+    State("history-page-num", "data"),
+    prevent_initial_call=True,
+)
+def go_prev(n_clicks, current_page):
+    return max(1, (current_page or 1) - 1)
+
+
+@callback(
+    Output("history-page-num", "data", allow_duplicate=True),
+    Input("history-next-btn", "n_clicks"),
+    State("history-page-num", "data"),
+    prevent_initial_call=True,
+)
+def go_next(n_clicks, current_page):
+    return (current_page or 1) + 1
+
+
+@callback(
+    Output("history-page-num", "data", allow_duplicate=True),
+    Input("history-filter-cat", "value"),
+    Input("history-search", "value"),
+    prevent_initial_call=True,
+)
+def reset_page_on_filter_change(_cat, _kw):
+    return 1
 
 
 @callback(
