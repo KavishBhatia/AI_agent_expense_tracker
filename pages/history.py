@@ -116,7 +116,7 @@ layout = html.Div([
                 dbc.Select(
                     id="history-cat-select",
                     options=_CAT_OPTIONS,
-                    value="",
+                    value="Groceries",
                 ),
             ], md=4),
         ], className="mb-3"),
@@ -129,7 +129,7 @@ layout = html.Div([
         dbc.Row([
             dbc.Col([
                 html.Label("Category", className="small text-muted mb-1"),
-                dbc.Select(id="history-filter-cat", options=_CAT_OPTIONS, value=""),
+                dbc.Select(id="history-filter-cat", options=_CAT_OPTIONS, value="Groceries"),
             ], md=4),
             dbc.Col([
                 html.Label("Search", className="small text-muted mb-1"),
@@ -195,6 +195,10 @@ def update_table(category: str, keyword: str, _deleted, _cat_updated):
              or kw in r.get("description", "").lower())
     ]
     filtered.sort(key=lambda r: r["date"], reverse=True)
+
+    # Cap "All Categories" view to avoid loading the entire DB at once
+    if not category:
+        filtered = filtered[:20]
 
     if not filtered:
         return "0 transactions found", html.P(
