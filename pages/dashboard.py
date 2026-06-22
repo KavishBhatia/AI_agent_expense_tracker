@@ -43,42 +43,12 @@ def _date_range(period: str) -> tuple:
     return None, None  # all_time
 
 
-def _recent_table(rows, limit: int = 6):
-    if not rows:
-        return html.P("No transactions yet.", className="text-muted small")
-    recent = rows[-limit:][::-1]
-    table_rows = [
-        html.Tr([
-            html.Td(_fmt(r["date"]), className="text-muted small"),
-            html.Td(r.get("merchant") or "—"),
-            html.Td(html.Span(r["category"], className="small", style={"backgroundColor": "#14b8a6", "color": "#fff", "borderRadius": "4px", "padding": "2px 7px"})),
-            html.Td(f"€{r['amount']:.2f}", className="fw-semibold text-end"),
-            html.Td(r["description"], className="text-muted small"),
-            html.Td(
-                dbc.Button("×", id={"type": "del-expense", "index": r["id"]},
-                           size="sm", color="link",
-                           style={"color": "#dc3545", "padding": "0 4px", "lineHeight": "1"}),
-                className="text-center",
-            ),
-        ])
-        for r in recent
-    ]
-    return dbc.Table(
-        [
-            html.Thead(html.Tr([
-                html.Th("Date"), html.Th("Store"), html.Th("Category"),
-                html.Th("Amount", className="text-end"), html.Th("Description"),
-                html.Th(),
-            ])),
-            html.Tbody(table_rows),
-        ],
-        hover=True, responsive=True, size="sm", className="mb-0",
-    )
-
-
 _TOAST_HIDDEN = {"position": "fixed", "bottom": "20px", "right": "20px",
                  "zIndex": 9999, "display": "none"}
 _TOAST_VISIBLE = {**_TOAST_HIDDEN, "display": "block"}
+
+# Note: expense-deleted-store, last-deleted-store, and undo-toast-container
+# are defined in app.py so they persist across page navigation.
 
 layout = html.Div([
     dbc.Row([
@@ -93,12 +63,12 @@ layout = html.Div([
         ),
     ], className="mb-4"),
 
-    # Recent transactions — top of page
+    # Link to History page
     dbc.Row([
-        dbc.Col([
-            html.H6("Recent Transactions", className="fw-semibold mb-2"),
-            html.Div(id="recent-transactions"),
-        ]),
+        dbc.Col(
+            dbc.Button("→ View History", href="/history", color="link", size="sm",
+                       className="ps-0 text-muted", style={"fontSize": "13px"}),
+        ),
     ], className="mb-4"),
 
     # KPI cards
@@ -131,7 +101,6 @@ layout = html.Div([
 
 @callback(
     Output("kpi-cards", "children"),
-    Output("recent-transactions", "children"),
     Output("chart-trend", "figure"),
     Output("chart-donut", "figure"),
     Output("chart-weekly", "figure"),
@@ -168,12 +137,8 @@ def update_dashboard(period: str, _deleted):
             import plotly.graph_objects as go
             return go.Figure().add_annotation(text=f"Chart error: {exc}", showarrow=False)
 
-    rows = fetch_expenses(start, end)
-    recent = _recent_table(rows, limit=6)
-
     return (
         kpi_cards,
-        recent,
         _safe(charts.fig_monthly_trend, start, end),
         _safe(charts.fig_category_donut, start, end),
         _safe(charts.fig_weekly_bar, start, end),
