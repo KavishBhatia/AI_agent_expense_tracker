@@ -111,16 +111,6 @@ layout = html.Div([
     # ── Category insights ──────────────────────────────────────────────────
     dbc.Card(dbc.CardBody([
         html.H6("Category Insights", className="fw-semibold mb-3"),
-        dbc.Row([
-            dbc.Col([
-                html.Label("Category", className="small text-muted mb-1"),
-                dbc.Select(
-                    id="history-cat-select",
-                    options=_CAT_OPTIONS,
-                    value="Groceries",
-                ),
-            ], md=4),
-        ], className="mb-3"),
         html.Div(id="history-stat-cards"),
     ]), className="mb-4"),
 
@@ -168,15 +158,14 @@ layout = html.Div([
 
 @callback(
     Output("history-stat-cards", "children"),
-    Output("history-filter-cat", "value"),
-    Input("history-cat-select", "value"),
+    Input("history-filter-cat", "value"),
     Input("expense-deleted-store", "data"),
     Input("history-cat-updated-store", "data"),
 )
 def update_stat_cards(category: str, _deleted, _cat_updated):
-    """Update the three stat cards when a category is selected."""
+    """Update the three stat cards when the transaction browser category changes."""
     if not category:
-        return html.P("Select a category above to see averages.", className="text-muted small"), ""
+        return html.P("Select a specific category below (not \"All Categories\") to see averages.", className="text-muted small")
     rows = fetch_expenses()
     avg_week = compute_weekly_avg(rows, category)
     avg_month = compute_monthly_avg(rows, category)
@@ -187,12 +176,11 @@ def update_stat_cards(category: str, _deleted, _cat_updated):
     else:
         last_text = "No purchases yet"
         last_sub = ""
-    cards = dbc.Row([
+    return dbc.Row([
         _stat_card("Avg / Week", f"€{avg_week:.2f}", "Mon–Sun, all time"),
         _stat_card("Avg / Month", f"€{avg_month:.2f}", "1st–last day, all time"),
         _stat_card("Last Purchase", last_text, last_sub),
     ])
-    return cards, category
 
 
 _PAGE_SIZE = 10
