@@ -165,7 +165,7 @@ layout = html.Div([
 def update_stat_cards(category: str, _deleted, _cat_updated):
     """Update the three stat cards when the transaction browser category changes."""
     if not category:
-        return html.P("Select a category above to see averages.", className="text-muted small")
+        return html.P("Select a specific category below (not \"All Categories\") to see averages.", className="text-muted small")
     rows = fetch_expenses()
     avg_week = compute_weekly_avg(rows, category)
     avg_month = compute_monthly_avg(rows, category)
