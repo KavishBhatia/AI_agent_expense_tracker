@@ -14,10 +14,12 @@ from expense_tracker_agent.db import (
     fetch_expense_items_by_parent_ids,
     fetch_expenses,
     find_parent_expense,
+    get_all_budgets,
     init_db,
     insert_expense,
     insert_expense_item,
     migrate_from_csv,
+    set_budget,
 )
 
 
@@ -65,7 +67,7 @@ class TestInitDb(BaseDbTest):
             "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
         ).fetchall()}
         conn.close()
-        self.assertEqual(tables, {"expenses", "expense_items"})
+        self.assertEqual(tables, {"expenses", "expense_items", "budgets"})
 
 
 class TestInsertExpense(BaseDbTest):
@@ -201,3 +203,37 @@ class TestMigrateFromCsv(BaseDbTest):
 
     def test_returns_zero_when_csv_missing(self):
         self.assertEqual(migrate_from_csv(Path("nonexistent.csv")), 0)
+
+
+class TestBudgets(BaseDbTest):
+    def test_get_all_budgets_empty(self):
+        self.assertEqual(get_all_budgets(), {})
+
+    def test_set_and_get_budget(self):
+        set_budget("Groceries", 200.0)
+        result = get_all_budgets()
+        self.assertAlmostEqual(result["Groceries"], 200.0)
+
+    def test_set_budget_upserts(self):
+        set_budget("Groceries", 200.0)
+        set_budget("Groceries", 300.0)
+        result = get_all_budgets()
+        self.assertAlmostEqual(result["Groceries"], 300.0)
+        self.assertEqual(len(result), 1)
+
+    def test_set_budget_none_removes_row(self):
+        set_budget("Groceries", 200.0)
+        set_budget("Groceries", None)
+        self.assertNotIn("Groceries", get_all_budgets())
+
+    def test_set_budget_zero_removes_row(self):
+        set_budget("Groceries", 200.0)
+        set_budget("Groceries", 0)
+        self.assertNotIn("Groceries", get_all_budgets())
+
+    def test_multiple_categories(self):
+        set_budget("Groceries", 200.0)
+        set_budget("Transport", 80.0)
+        result = get_all_budgets()
+        self.assertEqual(len(result), 2)
+        self.assertAlmostEqual(result["Transport"], 80.0)

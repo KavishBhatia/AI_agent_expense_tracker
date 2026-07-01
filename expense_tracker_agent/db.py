@@ -49,6 +49,12 @@ def init_db() -> None:
                 timestamp   TEXT    NOT NULL
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS budgets (
+                category      TEXT PRIMARY KEY,
+                monthly_limit REAL NOT NULL
+            )
+        """)
 
 
 def insert_expense(
@@ -158,6 +164,24 @@ def update_expense_category(expense_id: int, category: str) -> None:
             "UPDATE expenses SET category = ? WHERE id = ?",
             (category, expense_id),
         )
+
+
+def get_all_budgets() -> dict[str, float]:
+    with _conn() as conn:
+        rows = conn.execute("SELECT category, monthly_limit FROM budgets").fetchall()
+    return {r["category"]: r["monthly_limit"] for r in rows}
+
+
+def set_budget(category: str, monthly_limit: float | None) -> None:
+    with _conn() as conn:
+        if not monthly_limit or monthly_limit <= 0:
+            conn.execute("DELETE FROM budgets WHERE category = ?", (category,))
+        else:
+            conn.execute(
+                "INSERT INTO budgets (category, monthly_limit) VALUES (?, ?) "
+                "ON CONFLICT(category) DO UPDATE SET monthly_limit=excluded.monthly_limit",
+                (category, monthly_limit),
+            )
 
 
 def migrate_from_csv(csv_path: Path) -> int:
