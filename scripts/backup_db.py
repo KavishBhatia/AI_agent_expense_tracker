@@ -62,11 +62,14 @@ log = logging.getLogger(__name__)
 # ── Local backup ──────────────────────────────────────────────────────────────
 
 def _local_backup() -> Path:
-    """Copy expenses.db to the backup directory with today's date stamp."""
+    """Create a consistent SQLite backup in the backup directory with today's date stamp."""
+    import sqlite3
+
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
     today = datetime.now().strftime("%Y-%m-%d")
     dest = BACKUP_DIR / f"expenses_{today}.db"
-    shutil.copy2(DB_PATH, dest)
+    with sqlite3.connect(str(DB_PATH)) as src, sqlite3.connect(str(dest)) as dst:
+        src.backup(dst)
     log.info("Local backup saved: %s", dest)
     return dest
 
