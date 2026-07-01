@@ -6,7 +6,7 @@ import dash_bootstrap_components as dbc
 from dash import ALL, Input, Output, State, callback, dcc, html
 
 from expense_tracker_agent import charts
-from expense_tracker_agent.db import delete_expense, fetch_expenses, restore_expense
+from expense_tracker_agent.db import delete_expense, fetch_expenses, get_all_budgets, restore_expense
 
 
 def _fmt(iso: str) -> str:
@@ -16,6 +16,43 @@ def _fmt(iso: str) -> str:
         return f"{d}/{m}/{y}"
     except Exception:
         return iso
+
+
+def _current_month_range() -> tuple[str, str]:
+    today = date.today()
+    return today.replace(day=1).isoformat(), today.isoformat()
+
+
+def _render_budget_bars(budgets: dict[str, float], month_start: str, month_end: str) -> list:
+    rows = fetch_expenses(month_start, month_end)
+    spend_by_cat: dict[str, float] = {}
+    for r in rows:
+        spend_by_cat[r["category"]] = spend_by_cat.get(r["category"], 0.0) + r["amount"]
+
+    if not budgets:
+        return [html.P(
+            "No budgets set. Go to Budgets to configure limits.",
+            className="text-muted small",
+        )]
+
+    items = []
+    for cat, limit in sorted(budgets.items()):
+        spend = spend_by_cat.get(cat, 0.0)
+        pct = (spend / limit * 100) if limit > 0 else 0.0
+        bar_value = min(pct, 100)
+        color = "success" if pct < 80 else ("warning" if pct < 100 else "danger")
+        label = f"€{spend:.0f} / €{limit:.0f} · {pct:.0f}%"
+        items.append(html.Div([
+            html.Div([
+                html.Span(cat, className="small fw-semibold"),
+                html.Span(label, className="small text-muted ms-2"),
+            ], className="d-flex justify-content-between mb-1"),
+            dbc.Progress(
+                value=bar_value, color=color,
+                style={"height": "10px"}, className="mb-3",
+            ),
+        ]))
+    return items
 
 dash.register_page(__name__, path="/", name="Dashboard")
 
@@ -73,6 +110,9 @@ layout = html.Div([
 
     # KPI cards
     dbc.Row(id="kpi-cards", className="mb-4 g-3"),
+
+    # Budget section
+    dbc.Row(dbc.Col(html.Div(id="budget-section"), md=12), className="mb-4"),
 
     # Charts row 1
     dbc.Row([
@@ -146,6 +186,21 @@ def update_dashboard(period: str, _deleted):
         _safe(charts.fig_sub_expense_breakdown, start, end),
         _safe(charts.fig_heatmap, start, end),
     )
+
+
+@callback(
+    Output("budget-section", "children"),
+    Input("budget-updated-store", "data"),
+    Input("expense-deleted-store", "data"),
+)
+def update_budget_section(_budget_signal, _expense_signal):
+    budgets = get_all_budgets()
+    month_start, month_end = _current_month_range()
+    bars = _render_budget_bars(budgets, month_start, month_end)
+    return dbc.Card(dbc.CardBody([
+        html.H6("Monthly Budgets", className="fw-semibold mb-3"),
+        *bars,
+    ]), style={"borderTop": "3px solid #14b8a6", "borderRadius": "8px"})
 
 
 @callback(
