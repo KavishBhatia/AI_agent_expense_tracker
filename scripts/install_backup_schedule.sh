@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/usr/bin/env bash
 # Installs a daily launchd job that runs backup_db.py at 02:00 every day.
 # Run once: bash scripts/install_backup_schedule.sh
 
