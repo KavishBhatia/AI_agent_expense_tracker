@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/usr/bin/env bash
 # Removes the daily backup launchd job.
 # Run: bash scripts/uninstall_backup_schedule.sh
 
