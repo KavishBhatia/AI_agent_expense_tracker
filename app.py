@@ -38,6 +38,8 @@ navbar = dbc.Navbar(
                                     style={"color": "#ccfbf1", "fontWeight": "500"}),
                         dbc.NavLink("Scan Receipt", href="/scan", active="exact",
                                     style={"color": "#ccfbf1", "fontWeight": "500"}),
+                        dbc.NavLink("Backup", href="/backup", active="exact",
+                                    style={"color": "#ccfbf1", "fontWeight": "500"}),
                     ],
                     navbar=True,
                     className="ms-auto gap-2",
