@@ -134,7 +134,7 @@ layout = html.Div([
             ], md=8),
         ], className="mb-3"),
         dbc.Row([
-            dbc.Col(html.Div(id="history-results-count", className="text-muted small"), width=True),
+            dbc.Col(html.Div(id="history-results-count", className="text-muted small")),
             dbc.Col(
                 dbc.Button("⬇ Export CSV", id="history-export-btn",
                            color="outline-secondary", size="sm"),
