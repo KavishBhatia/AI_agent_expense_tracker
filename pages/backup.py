@@ -131,11 +131,11 @@ def _run_backup(local_only: bool) -> tuple[bool, str]:
     if local_only:
         cmd.append("--local")
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
         output = (result.stdout + result.stderr).strip()
         return result.returncode == 0, output or "Backup complete."
     except subprocess.TimeoutExpired:
-        return False, "Backup timed out after 60 seconds."
+        return False, "Backup timed out after 300 seconds."
     except Exception as exc:
         return False, f"Error: {exc}"
 
