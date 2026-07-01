@@ -34,6 +34,8 @@ navbar = dbc.Navbar(
                                     style={"color": "#ccfbf1", "fontWeight": "500"}),
                         dbc.NavLink("History", href="/history", active="exact",
                                     style={"color": "#ccfbf1", "fontWeight": "500"}),
+                        dbc.NavLink("Budgets", href="/budgets", active="exact",
+                                    style={"color": "#ccfbf1", "fontWeight": "500"}),
                         dbc.NavLink("Import CSV", href="/import", active="exact",
                                     style={"color": "#ccfbf1", "fontWeight": "500"}),
                         dbc.NavLink("Scan Receipt", href="/scan", active="exact",
@@ -59,6 +61,7 @@ app.layout = html.Div(
         # Global stores — available to callbacks on any page
         dcc.Store(id="expense-deleted-store"),
         dcc.Store(id="last-deleted-store"),
+        dcc.Store(id="budget-updated-store"),
         # Undo toast — always in DOM regardless of active page
         html.Div(
             id="undo-toast-container",
