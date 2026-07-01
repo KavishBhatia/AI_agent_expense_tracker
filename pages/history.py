@@ -347,7 +347,7 @@ def export_csv(n_clicks, category, keyword):
     ]
     filtered.sort(key=lambda r: r["date"], reverse=True)
 
-    buf = io.StringIO()
+    buf = io.StringIO(newline="")
     fields = ["date", "merchant", "category", "amount", "description"]
     writer = csv.DictWriter(buf, fieldnames=fields, extrasaction="ignore")
     writer.writeheader()
