@@ -108,7 +108,11 @@ def _get_gdrive_service():
         creds = Credentials.from_authorized_user_file(str(TOKEN_PATH), SCOPES)
 
     if creds and creds.expired and creds.refresh_token:
-        creds.refresh(Request())
+        try:
+            creds.refresh(Request())
+        except Exception:
+            log.exception("Failed to refresh Google Drive token; re-run with --auth.")
+            return None
         TOKEN_PATH.write_text(creds.to_json())
 
     if not creds or not creds.valid:
