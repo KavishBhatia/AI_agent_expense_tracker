@@ -117,6 +117,7 @@ layout = html.Div([
     # ── Transaction browser ────────────────────────────────────────────────
     dbc.Card(dbc.CardBody([
         html.H6("Transactions", className="fw-semibold mb-3"),
+        dcc.Download(id="history-download-csv"),
         dbc.Row([
             dbc.Col([
                 html.Label("Category", className="small text-muted mb-1"),
@@ -132,7 +133,14 @@ layout = html.Div([
                 ),
             ], md=8),
         ], className="mb-3"),
-        html.Div(id="history-results-count", className="text-muted small mb-2"),
+        dbc.Row([
+            dbc.Col(html.Div(id="history-results-count", className="text-muted small")),
+            dbc.Col(
+                dbc.Button("⬇ Export CSV", id="history-export-btn",
+                           color="outline-secondary", size="sm"),
+                width="auto",
+            ),
+        ], className="mb-2 align-items-center"),
         html.Div(id="history-table"),
         dbc.Row([
             dbc.Col(
@@ -315,3 +323,35 @@ def update_category_inline(values):
             expense_id = json.loads(trigger["prop_id"].split(".")[0])["index"]
             update_expense_category(expense_id, trigger["value"])
     return ctx.triggered_id
+
+
+@callback(
+    Output("history-download-csv", "data"),
+    Input("history-export-btn", "n_clicks"),
+    State("history-filter-cat", "value"),
+    State("history-search", "value"),
+    prevent_initial_call=True,
+)
+def export_csv(n_clicks, category, keyword):
+    """Download all rows matching the current filters as a CSV file."""
+    import csv
+    import io
+
+    rows = fetch_expenses()
+    kw = (keyword or "").strip().lower()
+    filtered = [
+        r for r in rows
+        if (not category or r["category"] == category)
+        and (not kw or kw in (r.get("merchant") or "").lower()
+             or kw in r.get("description", "").lower())
+    ]
+    filtered.sort(key=lambda r: r["date"], reverse=True)
+
+    buf = io.StringIO(newline="")
+    fields = ["date", "merchant", "category", "amount", "description"]
+    writer = csv.DictWriter(buf, fieldnames=fields, extrasaction="ignore")
+    writer.writeheader()
+    writer.writerows(filtered)
+
+    filename = f"expenses_{category or 'all'}_{date.today().isoformat()}.csv"
+    return dcc.send_string(buf.getvalue(), filename)
