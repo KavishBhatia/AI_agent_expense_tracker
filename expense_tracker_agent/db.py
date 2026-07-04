@@ -51,6 +51,7 @@ def init_db() -> None:
         """)
         # Migration: rename Transport → Commute
         conn.execute("UPDATE expenses SET category = 'Commute' WHERE category = 'Transport'")
+        conn.execute("UPDATE expense_items SET category = 'Commute' WHERE category = 'Transport'")
         has_budgets = conn.execute(
             "SELECT 1 FROM sqlite_master WHERE type='table' AND name='budgets'"
         ).fetchone()
