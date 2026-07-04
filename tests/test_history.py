@@ -117,7 +117,7 @@ class TestExportCsv(unittest.TestCase):
         )
         self.assertIn("2026-06-01,Lidl,Groceries,10.0", result["content"])
         self.assertNotIn("2026-06-02,Rewe,Groceries,20.0", result["content"])
-        self.assertNotIn("2026-06-03,Lidl,Transport,30.0", result["content"])
+        self.assertNotIn("2026-06-03,Lidl,Commute,30.0", result["content"])
 
 
 if __name__ == "__main__":
