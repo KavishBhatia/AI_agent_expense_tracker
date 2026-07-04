@@ -15,7 +15,7 @@ from expense_tracker_agent.db import (
 CATEGORIES = [
     "Groceries",
     "Food & Dining",
-    "Transport",
+    "Commute",
     "Entertainment",
     "Clothing & Fashion",
     "Pharmacy",

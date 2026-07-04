@@ -43,7 +43,7 @@ class TestAgentInstruction(unittest.TestCase):
         self.assertIn("2026-06-03", self.instruction)
 
     def test_instruction_contains_all_categories(self):
-        for cat in ["Groceries", "Transport", "Entertainment", "Alcohol", "Miscellaneous"]:
+        for cat in ["Groceries", "Commute", "Entertainment", "Alcohol", "Miscellaneous"]:
             self.assertIn(cat, self.instruction)
 
     def test_instruction_mentions_category_inference(self):
@@ -154,7 +154,7 @@ class TestAgentRunner(unittest.IsolatedAsyncioTestCase):
         """Agent calls list_recent_expenses and returns results."""
         today = date.today().isoformat()
         insert_expense(10.5, "Food", "Lunch", date=today)
-        insert_expense(25.0, "Transport", "Taxi", date=today)
+        insert_expense(25.0, "Commute", "Taxi", date=today)
 
         runner, app_name, user_id, session_id = await self._make_runner()
         call_id = "test-call-002"

@@ -51,7 +51,7 @@ class TestCategories(unittest.TestCase):
         self.assertIsInstance(CATEGORIES, list)
 
     def test_categories_contains_core_values(self):
-        for cat in ["Groceries", "Transport", "Entertainment", "Alcohol", "Miscellaneous"]:
+        for cat in ["Groceries", "Commute", "Entertainment", "Alcohol", "Miscellaneous"]:
             self.assertIn(cat, CATEGORIES)
 
     def test_alcohol_in_categories(self):
@@ -124,12 +124,12 @@ class TestGetSpendingByCategory(BaseToolsTest):
         super().setUp()
         add_expense(10.0, "a", "Food", date="2026-05-01")
         add_expense(20.0, "b", "Food", date="2026-06-01")
-        add_expense(15.0, "c", "Transport", date="2026-06-01")
+        add_expense(15.0, "c", "Commute", date="2026-06-01")
 
     def test_category_report_no_filter(self):
         result = get_spending_by_category()
         self.assertIn("Food", result)
-        self.assertIn("Transport", result)
+        self.assertIn("Commute", result)
 
     def test_category_report_start_date_excludes_earlier(self):
         result = get_spending_by_category(start_date="2026-06-01")
@@ -138,7 +138,7 @@ class TestGetSpendingByCategory(BaseToolsTest):
     def test_category_report_end_date(self):
         result = get_spending_by_category(end_date="2026-05-31")
         self.assertIn("Food", result)
-        self.assertNotIn("Transport", result)
+        self.assertNotIn("Commute", result)
 
 
 # ---------------------------------------------------------------------------
@@ -149,7 +149,7 @@ class TestListRecentExpenses(BaseToolsTest):
     def setUp(self):
         super().setUp()
         add_expense(10.0, "lunch", "Food", date="2026-06-01")
-        add_expense(20.0, "taxi", "Transport", date="2026-06-02")
+        add_expense(20.0, "taxi", "Commute", date="2026-06-02")
         add_expense(30.0, "dinner", "Food", date="2026-06-03")
 
     def test_list_no_filter_returns_all(self):
