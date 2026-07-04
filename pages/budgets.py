@@ -101,7 +101,7 @@ def toggle_more_categories(_n_clicks, is_open):
     State({"type": "budget-slider", "index": ALL}, "id"),
     prevent_initial_call=True,
 )
-def save_budgets(n_clicks, values, ids):
+def save_budgets(_n_clicks, values, ids):
     for val, id_dict in zip(values, ids):
         cat = id_dict["index"]
         limit = float(val) if val and val > 0 else None
