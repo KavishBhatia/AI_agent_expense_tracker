@@ -89,7 +89,7 @@ def layout():
     State("budget-more-collapse", "is_open"),
     prevent_initial_call=True,
 )
-def toggle_more_categories(n_clicks, is_open):
+def toggle_more_categories(_n_clicks, is_open):
     return not is_open
 
 
