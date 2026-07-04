@@ -17,8 +17,8 @@ _GROCERY_KW = {"edeka", "rewe", "lidl", "aldi", "kaufland", "netto", "penny", "n
                "supermarkt", "grocery", "supermarket", "bäckerei", "bakery"}
 _DINING_KW  = {"restaurant", "cafe", "kaffee", "coffee", "pizza", "burger", "kebab",
                "mcdonald", "mensa", "bistro", "bäcker", "imbiss", "diner", "sushi"}
-_TRANSPORT_KW = {"uber", "taxi", "bus", "bahn", "train", "metro", "tram", "mvv", "hvv",
-                 "fuel", "tanken", "petrol", "parking", "bvg", "db"}
+_COMMUTE_KW = {"uber", "taxi", "bus", "bahn", "train", "metro", "tram", "mvv", "hvv",
+               "fuel", "tanken", "petrol", "parking", "bvg", "db"}
 _ENTERTAINMENT_KW = {"cinema", "kino", "movie", "concert", "theatre", "museum",
                      "netflix", "spotify", "gaming", "steam"}
 _ALCOHOL_KW = {"beer", "bier", "wine", "wein", "spirits", "bar", "pub", "cocktail", "gin", "vodka"}
@@ -32,8 +32,8 @@ def _infer_category(text: str) -> str:
         return "Groceries"
     if any(k in t for k in _DINING_KW):
         return "Food & Dining"
-    if any(k in t for k in _TRANSPORT_KW):
-        return "Transport"
+    if any(k in t for k in _COMMUTE_KW):
+        return "Commute"
     if any(k in t for k in _ENTERTAINMENT_KW):
         return "Entertainment"
     return "Miscellaneous"
@@ -101,50 +101,52 @@ _TYPING_INDICATOR = html.Div(
 )
 
 
-layout = dbc.Row([
-    # Left: chat panel
-    dbc.Col([
-        html.H5("Chat with your expense agent", className="mb-3"),
-        html.Div(id="chat-history", style={
-            "height": "380px", "overflowY": "auto",
-            "border": "1px solid #e9ecef", "borderRadius": "8px",
-            "padding": "12px", "background": "#fafafa",
-            "marginBottom": "12px",
-        }),
-        dbc.Row([
-            dbc.Col([
-                html.Label("Date", className="small text-muted mb-1"),
-                dcc.DatePickerSingle(
-                    id="expense-date-picker",
-                    display_format="DD MMM YYYY",
-                    placeholder="Today",
-                    clearable=True,
-                    style={"width": "100%"},
-                ),
-            ], md=4),
-            dbc.Col([
-                html.Label("Message", className="small text-muted mb-1"),
-                dbc.InputGroup([
-                    dbc.Input(
-                        id="chat-input",
-                        placeholder='e.g. "€10 at Edeka" or "€3 beer, part of Edeka shop"',
-                        type="text",
-                        debounce=False,
+def layout():
+    return dbc.Row([
+        # Left: chat panel
+        dbc.Col([
+            html.H5("Chat with your expense agent", className="mb-3"),
+            html.Div(id="chat-history", style={
+                "height": "380px", "overflowY": "auto",
+                "border": "1px solid #e9ecef", "borderRadius": "8px",
+                "padding": "12px", "background": "#fafafa",
+                "marginBottom": "12px",
+            }),
+            dbc.Row([
+                dbc.Col([
+                    html.Label("Date", className="small text-muted mb-1"),
+                    dcc.DatePickerSingle(
+                        id="expense-date-picker",
+                        date=_date.today().isoformat(),
+                        display_format="DD MMM YYYY",
+                        placeholder="Today",
+                        clearable=True,
+                        style={"width": "100%"},
                     ),
-                    dbc.Button("Send", id="chat-send", color="primary", n_clicks=0),
-                ]),
-            ], md=8),
-        ]),
-        dcc.Store(id="chat-messages", data=[]),
-        dcc.Store(id="pending-chat-store"),
-    ], md=7),
+                ], md=4),
+                dbc.Col([
+                    html.Label("Message", className="small text-muted mb-1"),
+                    dbc.InputGroup([
+                        dbc.Input(
+                            id="chat-input",
+                            placeholder='e.g. "€10 at Edeka" or "€3 beer, part of Edeka shop"',
+                            type="text",
+                            debounce=False,
+                        ),
+                        dbc.Button("Send", id="chat-send", color="primary", n_clicks=0),
+                    ]),
+                ], md=8),
+            ]),
+            dcc.Store(id="chat-messages", data=[]),
+            dcc.Store(id="pending-chat-store"),
+        ], md=7),
 
-    # Right: recent expenses
-    dbc.Col([
-        html.H5("Recent expenses", className="mb-3"),
-        html.Div(id="recent-expenses-list"),
-    ], md=5),
-])
+        # Right: recent expenses
+        dbc.Col([
+            html.H5("Recent expenses", className="mb-3"),
+            html.Div(id="recent-expenses-list"),
+        ], md=5),
+    ])
 
 
 @callback(

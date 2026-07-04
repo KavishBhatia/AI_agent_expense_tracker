@@ -55,6 +55,10 @@ def init_db() -> None:
                 monthly_limit REAL NOT NULL
             )
         """)
+        # Migration: rename Transport → Commute
+        conn.execute("UPDATE expenses SET category = 'Commute' WHERE category = 'Transport'")
+        conn.execute("UPDATE expense_items SET category = 'Commute' WHERE category = 'Transport'")
+        conn.execute("UPDATE budgets SET category = 'Commute' WHERE category = 'Transport'")
 
 
 def insert_expense(
