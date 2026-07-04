@@ -174,7 +174,7 @@ def get_all_budgets() -> dict[str, float]:
 
 def set_budget(category: str, monthly_limit: float | None) -> None:
     with _conn() as conn:
-        if not monthly_limit or monthly_limit <= 0:
+        if monthly_limit is None or monthly_limit <= 0:
             conn.execute("DELETE FROM budgets WHERE category = ?", (category,))
         else:
             conn.execute(
