@@ -49,14 +49,16 @@ def init_db() -> None:
                 timestamp   TEXT    NOT NULL
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS budgets (
+                category      TEXT PRIMARY KEY,
+                monthly_limit REAL NOT NULL
+            )
+        """)
         # Migration: rename Transport → Commute
         conn.execute("UPDATE expenses SET category = 'Commute' WHERE category = 'Transport'")
         conn.execute("UPDATE expense_items SET category = 'Commute' WHERE category = 'Transport'")
-        has_budgets = conn.execute(
-            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='budgets'"
-        ).fetchone()
-        if has_budgets:
-            conn.execute("UPDATE budgets SET category = 'Commute' WHERE category = 'Transport'")
+        conn.execute("UPDATE budgets SET category = 'Commute' WHERE category = 'Transport'")
 
 
 def insert_expense(
@@ -166,6 +168,24 @@ def update_expense_category(expense_id: int, category: str) -> None:
             "UPDATE expenses SET category = ? WHERE id = ?",
             (category, expense_id),
         )
+
+
+def get_all_budgets() -> dict[str, float]:
+    with _conn() as conn:
+        rows = conn.execute("SELECT category, monthly_limit FROM budgets").fetchall()
+    return {r["category"]: r["monthly_limit"] for r in rows}
+
+
+def set_budget(category: str, monthly_limit: float | None) -> None:
+    with _conn() as conn:
+        if monthly_limit is None or monthly_limit <= 0:
+            conn.execute("DELETE FROM budgets WHERE category = ?", (category,))
+        else:
+            conn.execute(
+                "INSERT INTO budgets (category, monthly_limit) VALUES (?, ?) "
+                "ON CONFLICT(category) DO UPDATE SET monthly_limit=excluded.monthly_limit",
+                (category, monthly_limit),
+            )
 
 
 def migrate_from_csv(csv_path: Path) -> int:
