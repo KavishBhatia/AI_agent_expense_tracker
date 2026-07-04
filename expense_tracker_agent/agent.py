@@ -49,7 +49,7 @@ def _build_instruction(today: str) -> str:
         "Rules:\n"
         "- groceries, food items, supermarket purchases → Groceries\n"
         "- restaurants, cafes, fast food, takeaway → Food & Dining\n"
-        "- Uber, taxi, fuel, bus, train, metro, DB, FlixBus → Transport\n"
+        "- Uber, taxi, fuel, bus, train, metro, DB, FlixBus → Commute\n"
         "- Netflix, cinema, games, concerts, events, streaming → Entertainment\n"
         "- electricity, gas, internet, rent, insurance → Housing & Utilities\n"
         "- pharmacy, doctor, hospital, dentist, apotheke, medicine → Pharmacy\n"

@@ -22,7 +22,7 @@ class TestComputeWeeklyAvg(unittest.TestCase):
         self.assertEqual(compute_weekly_avg([], "Groceries"), 0.0)
 
     def test_returns_zero_when_no_matching_category(self):
-        rows = [_row("2026-01-05", "Transport", 10.0)]
+        rows = [_row("2026-01-05", "Commute", 10.0)]
         self.assertEqual(compute_weekly_avg(rows, "Groceries"), 0.0)
 
     def test_averages_across_complete_weeks(self):
@@ -96,7 +96,7 @@ class TestLastPurchaseInfo(unittest.TestCase):
         self.assertAlmostEqual(result["amount"], 20.0)
 
     def test_returns_none_for_wrong_category(self):
-        rows = [_row("2026-06-01", "Transport", 10.0)]
+        rows = [_row("2026-06-01", "Commute", 10.0)]
         self.assertIsNone(last_purchase_info(rows, "Groceries"))
 
 
@@ -107,7 +107,7 @@ class TestExportCsv(unittest.TestCase):
         mock_fetch_expenses.return_value = [
             _row("2026-06-01", "Groceries", 10.0, "Lidl"),
             _row("2026-06-02", "Groceries", 20.0, "Rewe"),
-            _row("2026-06-03", "Transport", 30.0, "Lidl"),
+            _row("2026-06-03", "Commute", 30.0, "Lidl"),
         ]
 
         result = export_csv(1, "Groceries", "lidl")
@@ -117,7 +117,7 @@ class TestExportCsv(unittest.TestCase):
         )
         self.assertIn("2026-06-01,Lidl,Groceries,10.0", result["content"])
         self.assertNotIn("2026-06-02,Rewe,Groceries,20.0", result["content"])
-        self.assertNotIn("2026-06-03,Lidl,Transport,30.0", result["content"])
+        self.assertNotIn("2026-06-03,Lidl,Commute,30.0", result["content"])
 
 
 if __name__ == "__main__":
