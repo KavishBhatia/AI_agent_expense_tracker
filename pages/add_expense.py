@@ -138,7 +138,7 @@ def layout():
                 ], md=8),
             ]),
             dcc.Store(id="chat-messages", data=[]),
-            dcc.Store(id="pending-chat-store"),
+            dcc.Store(id="pending-chat-store", data={"status": "idle"}),
         ], md=7),
 
         # Right: recent expenses
@@ -207,7 +207,7 @@ def handle_chat_immediate(n_clicks, n_submit, user_input, messages, selected_dat
 )
 def handle_chat_response(pending, messages):
     """Step 2: call the agent, replace typing indicator with response, unlock UI."""
-    if not pending:
+    if not pending or pending.get("status") == "idle":
         return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
 
     agent_text = pending["agent_text"]
@@ -255,4 +255,4 @@ def handle_chat_response(pending, messages):
     ]
     recent_list = dbc.ListGroup(recent_items) if recent_items else html.P("No expenses yet.", className="text-muted")
 
-    return bubbles, updated_messages, recent_list, None, False, False
+    return bubbles, updated_messages, recent_list, {"status": "idle"}, False, False
