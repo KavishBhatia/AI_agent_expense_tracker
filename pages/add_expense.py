@@ -207,7 +207,7 @@ def handle_chat_immediate(n_clicks, n_submit, user_input, messages, selected_dat
 )
 def handle_chat_response(pending, messages):
     """Step 2: call the agent, replace typing indicator with response, unlock UI."""
-    if not pending or pending.get("status") == "idle":
+    if not isinstance(pending, dict) or pending.get("status") == "idle" or "agent_text" not in pending:
         return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
 
     agent_text = pending["agent_text"]
