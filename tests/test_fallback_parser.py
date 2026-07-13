@@ -3,7 +3,9 @@ import re
 import unittest
 from unittest.mock import patch
 
-from pages.add_expense import _try_fallback_parse
+import dash
+
+from pages.add_expense import _try_fallback_parse, handle_chat_response
 
 
 class TestTryFallbackParse(unittest.TestCase):
@@ -83,6 +85,12 @@ class TestTryFallbackParse(unittest.TestCase):
         stripped = re.sub(r"^On \d{4}-\d{2}-\d{2}: ", "", text)
         self.assertEqual(stripped, text,
                          msg="Strip regex must be anchored to ^ and must not touch mid-string")
+
+
+class TestHandleChatResponse(unittest.TestCase):
+    def test_idle_pending_data_returns_no_update(self):
+        result = handle_chat_response({"status": "idle"}, [])
+        self.assertEqual(result, (dash.no_update,) * 6)
 
 
 if __name__ == "__main__":
