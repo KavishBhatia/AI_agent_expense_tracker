@@ -39,7 +39,6 @@ navbar = dbc.Navbar(
                             id="tools-drawer-btn",
                             color="link",
                             title="Tools",
-                            **{"aria-label": "Open tools drawer"},
                             style={"color": "#ccfbf1", "fontSize": "1.2rem", "padding": "6px 10px"},
                             n_clicks=0,
                         ),
