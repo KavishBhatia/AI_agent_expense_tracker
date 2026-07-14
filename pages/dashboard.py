@@ -111,8 +111,22 @@ layout = html.Div([
     # KPI cards
     dbc.Row(id="kpi-cards", className="mb-4 g-3"),
 
-    # Budget section
-    dbc.Row(dbc.Col(html.Div(id="budget-section"), md=12), className="mb-4"),
+    # Budget section (collapsible)
+    dbc.Row(dbc.Col([
+        dbc.Button(
+            "Monthly Budgets ▼",
+            id="budget-toggle-btn",
+            color="link",
+            className="p-0 mb-2 text-decoration-none fw-semibold",
+            style={"color": "#0f766e", "fontSize": "1rem"},
+            n_clicks=0,
+        ),
+        dbc.Collapse(
+            html.Div(id="budget-section"),
+            id="budget-collapse",
+            is_open=True,
+        ),
+    ], md=12), className="mb-4"),
 
     # Charts row 1
     dbc.Row([
@@ -201,6 +215,19 @@ def update_budget_section(_budget_signal, _expense_signal):
         html.H6("Monthly Budgets", className="fw-semibold mb-3"),
         *bars,
     ]), style={"borderTop": "3px solid #14b8a6", "borderRadius": "8px"})
+
+
+@callback(
+    Output("budget-collapse", "is_open"),
+    Output("budget-toggle-btn", "children"),
+    Input("budget-toggle-btn", "n_clicks"),
+    State("budget-collapse", "is_open"),
+    prevent_initial_call=True,
+)
+def toggle_budget_collapse(_n_clicks, is_open):
+    new_open = not is_open
+    label = "Monthly Budgets ▼" if new_open else "Monthly Budgets ▶"
+    return new_open, label
 
 
 @callback(
