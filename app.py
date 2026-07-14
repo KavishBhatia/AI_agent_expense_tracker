@@ -3,7 +3,7 @@ from pathlib import Path
 
 import dash
 import dash_bootstrap_components as dbc
-from dash import dcc, html
+from dash import Input, Output, State, callback, dcc, html
 
 from expense_tracker_agent.db import init_db, migrate_from_csv
 
@@ -28,20 +28,15 @@ navbar = dbc.Navbar(
             dbc.Collapse(
                 dbc.Nav(
                     [
-                        dbc.NavLink("Dashboard", href="/", active="exact",
+                        dbc.NavLink("Dashboard",   href="/",        active="exact",
                                     style={"color": "#ccfbf1", "fontWeight": "500"}),
-                        dbc.NavLink("Add Expense", href="/add", active="exact",
+                        dbc.NavLink("Add Expense", href="/add",     active="exact",
                                     style={"color": "#ccfbf1", "fontWeight": "500"}),
-                        dbc.NavLink("History", href="/history", active="exact",
+                        dbc.NavLink("History",     href="/history", active="exact",
                                     style={"color": "#ccfbf1", "fontWeight": "500"}),
-                        dbc.NavLink("Budgets", href="/budgets", active="exact",
-                                    style={"color": "#ccfbf1", "fontWeight": "500"}),
-                        dbc.NavLink("Import CSV", href="/import", active="exact",
-                                    style={"color": "#ccfbf1", "fontWeight": "500"}),
-                        dbc.NavLink("Scan Receipt", href="/scan", active="exact",
-                                    style={"color": "#ccfbf1", "fontWeight": "500"}),
-                        dbc.NavLink("Backup", href="/backup", active="exact",
-                                    style={"color": "#ccfbf1", "fontWeight": "500"}),
+                        dbc.Button("☰", id="tools-drawer-btn", color="link",
+                                   style={"color": "#ccfbf1", "fontSize": "1.2rem", "padding": "6px 10px"},
+                                   n_clicks=0),
                     ],
                     navbar=True,
                     className="ms-auto gap-2",
@@ -78,9 +73,38 @@ app.layout = html.Div(
             ),
         ),
         navbar,
+        dbc.Offcanvas(
+            dbc.Nav(
+                [
+                    dbc.NavLink("Set Budgets",  href="/budgets", active="exact", className="mb-2",
+                                style={"fontWeight": "500"}),
+                    dbc.NavLink("Import CSV",   href="/import",  active="exact", className="mb-2",
+                                style={"fontWeight": "500"}),
+                    dbc.NavLink("Scan Receipt", href="/scan",    active="exact", className="mb-2",
+                                style={"fontWeight": "500"}),
+                    dbc.NavLink("Backup",       href="/backup",  active="exact",
+                                style={"fontWeight": "500"}),
+                ],
+                vertical=True,
+            ),
+            id="tools-offcanvas",
+            title="Tools",
+            placement="end",
+            is_open=False,
+        ),
         dbc.Container(dash.page_container, fluid=False, className="pb-5"),
     ]
 )
+
+
+@callback(
+    Output("tools-offcanvas", "is_open"),
+    Input("tools-drawer-btn", "n_clicks"),
+    State("tools-offcanvas", "is_open"),
+    prevent_initial_call=True,
+)
+def toggle_tools_drawer(_n, is_open):
+    return not is_open
 
 server = app.server
 
