@@ -102,7 +102,7 @@ class TestSubExpenseBreakdownData(BaseChartsTest):
         self.assertEqual(len(df), 0)
 
     def test_excludes_expenses_without_merchant(self):
-        insert_expense(7.0, "Food", "no merchant")
+        insert_expense(7.0, "Food", "no merchant", date="2026-06-01")
         df = sub_expense_breakdown_data("2026-01-01", "2026-12-31")
         self.assertEqual(len(df), 0)
 
