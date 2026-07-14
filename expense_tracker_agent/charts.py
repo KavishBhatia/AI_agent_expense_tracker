@@ -63,12 +63,15 @@ def top_merchants_data(start_date: str, end_date: str, n: int = 10) -> pd.DataFr
     )
 
 
+_GROCERY_DRUGSTORE_MERCHANTS = {"edeka", "lidl", "aldi", "netto", "dm", "müller", "muller"}
+
+
 def sub_expense_breakdown_data(start_date: str, end_date: str) -> pd.DataFrame:
     expenses = fetch_expenses(start_date, end_date)
     rows = [
         {"merchant": e["merchant"], "category": e["category"], "amount": e["amount"]}
         for e in expenses
-        if e.get("merchant")
+        if e.get("merchant") and e["merchant"].strip().lower() in _GROCERY_DRUGSTORE_MERCHANTS
     ]
     if not rows:
         return pd.DataFrame(columns=["merchant", "category", "amount"])
@@ -161,16 +164,9 @@ def fig_top_merchants(start_date: str, end_date: str) -> Figure:
 def fig_sub_expense_breakdown(start_date: str, end_date: str) -> Figure:
     df = sub_expense_breakdown_data(start_date, end_date)
     if df.empty:
-        return go.Figure().add_annotation(text="No data yet", showarrow=False)
-    top_merchants = (
-        df.groupby("merchant")["amount"].sum()
-        .sort_values(ascending=False)
-        .head(15)
-        .index
-    )
-    df = df[df["merchant"].isin(top_merchants)]
+        return go.Figure().add_annotation(text="No grocery/drugstore data yet", showarrow=False)
     fig = px.bar(df, x="merchant", y="amount", color="category",
-                 title="Spending by Store",
+                 title="Grocery & Drugstore Spending by Category",
                  labels={"amount": "€", "merchant": "Store"},
                  color_discrete_sequence=["#0d9488", "#3b82f6", "#f59e0b", "#8b5cf6", "#ef4444", "#84cc16", "#f97316"])
     fig.update_layout(xaxis_tickangle=-30)
