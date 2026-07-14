@@ -100,10 +100,14 @@ app.layout = html.Div(
 @callback(
     Output("tools-offcanvas", "is_open"),
     Input("tools-drawer-btn", "n_clicks"),
+    Input("_pages_location", "pathname"),
     State("tools-offcanvas", "is_open"),
     prevent_initial_call=True,
 )
-def toggle_tools_drawer(_n, is_open):
+def toggle_tools_drawer(_n, _pathname, is_open):
+    ctx = dash.callback_context
+    if ctx.triggered_id == "_pages_location":
+        return False
     return not is_open
 
 server = app.server
