@@ -35,7 +35,10 @@ navbar = dbc.Navbar(
                         dbc.NavLink("History",     href="/history", active="exact",
                                     style={"color": "#ccfbf1", "fontWeight": "500"}),
                         dbc.Button(
-                            "☰",
+                            [
+                                html.Span("☰"),
+                                html.Span("Open tools drawer", className="visually-hidden"),
+                            ],
                             id="tools-drawer-btn",
                             color="link",
                             title="Tools",
