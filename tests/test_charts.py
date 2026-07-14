@@ -89,14 +89,22 @@ class TestTopMerchantsData(BaseChartsTest):
 
 
 class TestSubExpenseBreakdownData(BaseChartsTest):
-    def test_only_includes_merchants_with_items(self):
-        eid = insert_expense(10.0, "Groceries", "shop", merchant="Edeka", date="2026-06-01")
-        insert_expense_item(eid, 3.0, "beer", "Alcohol")
+    def test_includes_whitelisted_merchants(self):
+        insert_expense(10.0, "Groceries", "shop", merchant="Edeka", date="2026-06-01")
+        insert_expense(5.0, "Personal Care", "soap", merchant="dm", date="2026-06-01")
+        df = sub_expense_breakdown_data("2026-06-01", "2026-06-30")
+        self.assertIn("Edeka", list(df["merchant"].unique()))
+        self.assertIn("dm", list(df["merchant"].unique()))
+
+    def test_excludes_non_whitelisted_merchants(self):
         insert_expense(5.0, "Food", "lunch", merchant="Bistro", date="2026-06-01")
         df = sub_expense_breakdown_data("2026-06-01", "2026-06-30")
-        merchants = list(df["merchant"].unique())
-        self.assertIn("Edeka", merchants)
-        self.assertNotIn("Bistro", merchants)
+        self.assertEqual(len(df), 0)
+
+    def test_excludes_expenses_without_merchant(self):
+        insert_expense(7.0, "Food", "no merchant", date="2026-06-01")
+        df = sub_expense_breakdown_data("2026-01-01", "2026-12-31")
+        self.assertEqual(len(df), 0)
 
 
 class TestHeatmapData(BaseChartsTest):

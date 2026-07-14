@@ -63,22 +63,20 @@ def top_merchants_data(start_date: str, end_date: str, n: int = 10) -> pd.DataFr
     )
 
 
+_GROCERY_DRUGSTORE_MERCHANTS = {"edeka", "lidl", "aldi", "netto", "dm", "müller", "muller"}
+
+
 def sub_expense_breakdown_data(start_date: str, end_date: str) -> pd.DataFrame:
     expenses = fetch_expenses(start_date, end_date)
-    rows = []
-    for exp in expenses:
-        if not exp["merchant"]:
-            continue
-        items = fetch_expense_items(exp["id"])
-        for item in items:
-            rows.append({
-                "merchant": exp["merchant"],
-                "category": item["category"],
-                "amount": item["amount"],
-            })
+    rows = [
+        {"merchant": e["merchant"], "category": e["category"], "amount": e["amount"]}
+        for e in expenses
+        if e.get("merchant") and e["merchant"].strip().lower() in _GROCERY_DRUGSTORE_MERCHANTS
+    ]
     if not rows:
         return pd.DataFrame(columns=["merchant", "category", "amount"])
-    return pd.DataFrame(rows)
+    df = pd.DataFrame(rows)
+    return df.groupby(["merchant", "category"], as_index=False)["amount"].sum()
 
 
 def heatmap_data(start_date: str, end_date: str) -> pd.DataFrame:
@@ -166,11 +164,13 @@ def fig_top_merchants(start_date: str, end_date: str) -> Figure:
 def fig_sub_expense_breakdown(start_date: str, end_date: str) -> Figure:
     df = sub_expense_breakdown_data(start_date, end_date)
     if df.empty:
-        return go.Figure().add_annotation(text="No receipt data yet", showarrow=False)
-    return px.bar(df, x="merchant", y="amount", color="category",
-                  title="Sub-expense Breakdown by Store",
-                  labels={"amount": "€", "merchant": "Store"},
-                  color_discrete_sequence=["#0d9488", "#3b82f6", "#f59e0b", "#8b5cf6", "#ef4444", "#84cc16", "#f97316"])
+        return go.Figure().add_annotation(text="No grocery/drugstore data yet", showarrow=False)
+    fig = px.bar(df, x="merchant", y="amount", color="category",
+                 title="Grocery & Drugstore Spending by Category",
+                 labels={"amount": "€", "merchant": "Store"},
+                 color_discrete_sequence=["#0d9488", "#3b82f6", "#f59e0b", "#8b5cf6", "#ef4444", "#84cc16", "#f97316"])
+    fig.update_layout(xaxis_tickangle=-30)
+    return fig
 
 
 def fig_heatmap(start_date: str, end_date: str) -> Figure:
