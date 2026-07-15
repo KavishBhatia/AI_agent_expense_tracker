@@ -64,7 +64,7 @@ def fetch_trips() -> list[dict]:
         FROM trips t
         LEFT JOIN trip_expenses e ON e.trip_id = t.id
         GROUP BY t.id
-        ORDER BY MAX(e.date) DESC NULLS LAST, t.created_at DESC
+        ORDER BY (MAX(e.date) IS NULL) ASC, MAX(e.date) DESC, t.created_at DESC
     """
     with _conn() as con:
         con.row_factory = sqlite3.Row
