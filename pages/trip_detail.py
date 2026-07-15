@@ -299,6 +299,8 @@ def import_csv(contents, filename, trip_id, search):
     for _, row in df.iterrows():
         try:
             amount = float(str(row[cost_col]).replace(",", "."))
+            if pd.isna(amount):
+                raise ValueError("Missing amount")
             merchant = str(row[merchant_col]).strip() if merchant_col else None
             if merchant in ("", "nan", "None"):
                 merchant = None
