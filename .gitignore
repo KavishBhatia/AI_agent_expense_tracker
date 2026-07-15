@@ -223,3 +223,4 @@ llms-full.txt
 .claude/
 openspec/
 .dash_cache/
+trips.db
