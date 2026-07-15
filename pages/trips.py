@@ -85,6 +85,8 @@ def refresh_trips(_):
 
 @callback(
     Output("new-trip-modal", "is_open"),
+    Output("new-trip-name", "value"),
+    Output("new-trip-name-error", "children", allow_duplicate=True),
     Input("new-trip-btn", "n_clicks"),
     Input("new-trip-cancel", "n_clicks"),
     State("new-trip-modal", "is_open"),
@@ -93,11 +95,10 @@ def refresh_trips(_):
 def toggle_modal(open_clicks, cancel_clicks, is_open):
     ctx = dash.callback_context
     if not ctx.triggered:
-        return is_open
+        return is_open, dash.no_update, dash.no_update
     if ctx.triggered_id == "new-trip-btn":
-        return True
-    return False
-
+        return True, "", ""
+    return False, "", ""
 
 @callback(
     Output("new-trip-modal", "is_open", allow_duplicate=True),
