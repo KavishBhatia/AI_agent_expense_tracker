@@ -27,7 +27,6 @@ def init_trip_db() -> None:
                 description TEXT,
                 date        TEXT    NOT NULL
             );
-            PRAGMA foreign_keys = ON;
         """)
 
 

@@ -35,8 +35,7 @@ def _days_count(start, end) -> int:
     if not start or not end:
         return 0
     try:
-        from datetime import date
-        return (date.fromisoformat(end) - date.fromisoformat(start)).days + 1
+        return (_date.fromisoformat(end) - _date.fromisoformat(start)).days + 1
     except Exception:
         return 0
 
@@ -45,6 +44,8 @@ def layout(**kwargs):
     return html.Div([
         dcc.Location(id="trip-location"),
         dcc.Store(id="trip-id-store"),
+        html.Div(id="te-feedback"),
+        html.Div(id="trip-csv-feedback"),
         html.Div(id="trip-detail-content"),
     ])
 
@@ -167,7 +168,6 @@ def render_trip(search):
                     ], md=2),
                 ], className="mb-2"),
                 dbc.Button("Save Expense", id="te-save-btn", color="primary", size="sm", n_clicks=0),
-                html.Div(id="te-feedback", className="mt-2"),
             ])),
             id="add-expense-collapse",
             is_open=False,
@@ -183,7 +183,6 @@ def render_trip(search):
                     multiple=False,
                     accept=".csv",
                 ),
-                html.Div(id="trip-csv-feedback", className="mt-2"),
             ])),
             id="import-csv-collapse",
             is_open=False,
