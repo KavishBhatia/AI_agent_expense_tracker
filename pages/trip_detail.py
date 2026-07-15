@@ -18,16 +18,20 @@ from expense_tracker_agent.trip_db import (
 
 dash.register_page(__name__, path="/trip", name="Trip Detail")
 
-_KNOWN_DATE_COLS = {"date", "datum", "day"}
-_KNOWN_COST_COLS = {"cost", "amount", "price", "kosten", "betrag", "preis"}
-_KNOWN_NAME_COLS = {
-    # generic
-    "description", "details", "item", "name", "note", "notes", "what", "label", "title",
-    # merchant / shop
+_KNOWN_DATE_COLS = ["date", "datum", "day"]
+_KNOWN_COST_COLS = ["cost", "amount", "price", "kosten", "betrag", "preis"]
+_KNOWN_NAME_COLS = [
+    # most specific first — typical trip export column names
+    "item",
+    # merchant / shop specific
     "merchant", "store", "shop", "supermarket", "supermarket name",
+    # generic description columns
+    "description", "details", "name", "label", "title",
+    # loose fallbacks — common spreadsheet extras (checked last to avoid false matches)
+    "note", "notes", "what",
     # german
     "beschreibung", "bezeichnung", "markt", "laden", "zweck",
-}
+]
 
 
 def _fmt(iso: str) -> str:
@@ -304,7 +308,7 @@ def import_csv(contents, filename, trip_id, search):
 
     print(f"[trip import] columns in '{filename}': {list(df.columns)}")
 
-    cols_lower = {c.lower(): c for c in df.columns}
+    cols_lower = {c.strip().lower(): c for c in df.columns}
     date_col = next((cols_lower[k] for k in _KNOWN_DATE_COLS if k in cols_lower), None)
     cost_col = next((cols_lower[k] for k in _KNOWN_COST_COLS if k in cols_lower), None)
     name_col = next((cols_lower[k] for k in _KNOWN_NAME_COLS if k in cols_lower), None)
