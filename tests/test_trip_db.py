@@ -1,0 +1,89 @@
+# tests/test_trip_db.py
+import os, tempfile, unittest
+from pathlib import Path
+from unittest.mock import patch
+
+import expense_tracker_agent.trip_db as trip_db_module
+from expense_tracker_agent.trip_db import (
+    init_trip_db, create_trip, fetch_trips, fetch_trip,
+    fetch_trip_expenses, insert_trip_expense, delete_trip,
+)
+
+def _temp_db() -> Path:
+    f = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+    f.close()
+    os.unlink(f.name)
+    return Path(f.name)
+
+class BaseTripDbTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp_db = _temp_db()
+        self.patcher = patch.object(trip_db_module, "TRIP_DB_PATH", self.tmp_db)
+        self.patcher.start()
+        init_trip_db()
+
+    def tearDown(self):
+        self.patcher.stop()
+        if self.tmp_db.exists():
+            self.tmp_db.unlink()
+
+class TestCreateFetchTrip(BaseTripDbTest):
+    def test_create_returns_id(self):
+        tid = create_trip("Barcelona")
+        self.assertIsInstance(tid, int)
+        self.assertGreater(tid, 0)
+
+    def test_fetch_trips_empty(self):
+        self.assertEqual(fetch_trips(), [])
+
+    def test_fetch_trips_returns_trip(self):
+        tid = create_trip("Lisbon")
+        trips = fetch_trips()
+        self.assertEqual(len(trips), 1)
+        self.assertEqual(trips[0]["name"], "Lisbon")
+        self.assertEqual(trips[0]["id"], tid)
+
+    def test_fetch_trip_none_for_missing(self):
+        self.assertIsNone(fetch_trip(999))
+
+    def test_fetch_trip_totals_computed(self):
+        tid = create_trip("Rome")
+        insert_trip_expense(tid, 20.0, "Ristorante", "Food & Dining", "pasta", "2026-05-10")
+        insert_trip_expense(tid, 10.0, None, "Commute", None, "2026-05-11")
+        t = fetch_trip(tid)
+        self.assertAlmostEqual(t["total"], 30.0)
+        self.assertEqual(t["count"], 2)
+        self.assertEqual(t["start_date"], "2026-05-10")
+        self.assertEqual(t["end_date"], "2026-05-11")
+
+class TestTripExpenses(BaseTripDbTest):
+    def test_insert_and_fetch(self):
+        tid = create_trip("Paris")
+        insert_trip_expense(tid, 15.0, "Boulangerie", "Food & Dining", "croissant", "2026-04-01")
+        rows = fetch_trip_expenses(tid)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["merchant"], "Boulangerie")
+        self.assertAlmostEqual(rows[0]["amount"], 15.0)
+
+    def test_nullable_fields(self):
+        tid = create_trip("Berlin")
+        insert_trip_expense(tid, 5.0, None, "Miscellaneous", None, "2026-03-01")
+        rows = fetch_trip_expenses(tid)
+        self.assertIsNone(rows[0]["merchant"])
+        self.assertIsNone(rows[0]["description"])
+
+    def test_sorted_by_date_asc(self):
+        tid = create_trip("Vienna")
+        insert_trip_expense(tid, 10.0, "A", "Food & Dining", None, "2026-06-05")
+        insert_trip_expense(tid, 20.0, "B", "Groceries", None, "2026-06-03")
+        rows = fetch_trip_expenses(tid)
+        self.assertEqual(rows[0]["date"], "2026-06-03")
+        self.assertEqual(rows[1]["date"], "2026-06-05")
+
+class TestDeleteTrip(BaseTripDbTest):
+    def test_delete_removes_trip_and_expenses(self):
+        tid = create_trip("Madrid")
+        insert_trip_expense(tid, 12.0, "Mercado", "Groceries", None, "2026-07-01")
+        delete_trip(tid)
+        self.assertEqual(fetch_trips(), [])
+        self.assertEqual(fetch_trip_expenses(tid), [])
