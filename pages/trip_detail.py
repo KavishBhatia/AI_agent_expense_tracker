@@ -19,7 +19,7 @@ from expense_tracker_agent.trip_db import (
 dash.register_page(__name__, path="/trip", name="Trip Detail")
 
 _KNOWN_DATE_COLS = ["date", "datum", "day"]
-_KNOWN_COST_COLS = ["cost", "amount", "price", "kosten", "betrag", "preis"]
+_KNOWN_COST_COLS = ["cost", "amount", "price", "spent", "kosten", "betrag", "preis"]
 _KNOWN_NAME_COLS = [
     # most specific first — typical trip export column names
     "item",
@@ -297,14 +297,20 @@ def import_csv(contents, filename, trip_id, search):
     _, content_string = contents.split(",", 1)
     decoded = base64.b64decode(content_string)
     try:
-        df = pd.read_csv(io.StringIO(decoded.decode("utf-8")))
+        decoded_text = decoded.decode("utf-8")
     except UnicodeDecodeError:
         try:
-            df = pd.read_csv(io.StringIO(decoded.decode("latin-1")))
+            decoded_text = decoded.decode("latin-1")
         except Exception as exc:
             return dbc.Alert(f"Could not parse CSV: {exc}", color="danger"), dash.no_update, dash.no_update
-    except Exception as exc:
-        return dbc.Alert(f"Could not parse CSV: {exc}", color="danger"), dash.no_update, dash.no_update
+
+    try:
+        df = pd.read_csv(io.StringIO(decoded_text), sep=None, engine="python")
+    except Exception:
+        try:
+            df = pd.read_csv(io.StringIO(decoded_text))
+        except Exception as exc:
+            return dbc.Alert(f"Could not parse CSV: {exc}", color="danger"), dash.no_update, dash.no_update
 
     print(f"[trip import] columns in '{filename}': {list(df.columns)}")
 
@@ -312,6 +318,14 @@ def import_csv(contents, filename, trip_id, search):
     date_col = next((cols_lower[k] for k in _KNOWN_DATE_COLS if k in cols_lower), None)
     cost_col = next((cols_lower[k] for k in _KNOWN_COST_COLS if k in cols_lower), None)
     name_col = next((cols_lower[k] for k in _KNOWN_NAME_COLS if k in cols_lower), None)
+
+    # prefix fallback: handles "Cost for 2", "Cost per person", etc.
+    if not cost_col:
+        cost_prefixes = tuple(_KNOWN_COST_COLS)
+        cost_col = next(
+            (orig for lower, orig in cols_lower.items() if lower.startswith(cost_prefixes)),
+            None,
+        )
 
     print(f"[trip import] detected → date={date_col!r} cost={cost_col!r} name={name_col!r}")
 
