@@ -20,7 +20,14 @@ dash.register_page(__name__, path="/trip", name="Trip Detail")
 
 _KNOWN_DATE_COLS = {"date", "datum", "day"}
 _KNOWN_COST_COLS = {"cost", "amount", "price", "kosten", "betrag", "preis"}
-_KNOWN_MERCHANT_COLS = {"supermarket name", "supermarket", "merchant", "store", "shop", "markt", "laden"}
+_KNOWN_NAME_COLS = {
+    # generic
+    "description", "details", "item", "name", "note", "notes", "what", "label", "title",
+    # merchant / shop
+    "merchant", "store", "shop", "supermarket", "supermarket name",
+    # german
+    "beschreibung", "bezeichnung", "markt", "laden", "zweck",
+}
 
 
 def _fmt(iso: str) -> str:
@@ -287,7 +294,7 @@ def import_csv(contents, filename, trip_id, search):
     cols_lower = {c.lower(): c for c in df.columns}
     date_col = next((cols_lower[k] for k in _KNOWN_DATE_COLS if k in cols_lower), None)
     cost_col = next((cols_lower[k] for k in _KNOWN_COST_COLS if k in cols_lower), None)
-    merchant_col = next((cols_lower[k] for k in _KNOWN_MERCHANT_COLS if k in cols_lower), None)
+    name_col = next((cols_lower[k] for k in _KNOWN_NAME_COLS if k in cols_lower), None)
 
     if not date_col or not cost_col:
         return dbc.Alert(
@@ -301,7 +308,7 @@ def import_csv(contents, filename, trip_id, search):
             amount = float(str(row[cost_col]).replace(",", "."))
             if pd.isna(amount):
                 raise ValueError("Missing amount")
-            merchant = str(row[merchant_col]).strip() if merchant_col else None
+            merchant = str(row[name_col]).strip() if name_col else None
             if merchant in ("", "nan", "None"):
                 merchant = None
             norm_date = pd.to_datetime(str(row[date_col]), dayfirst=True).strftime("%Y-%m-%d")
