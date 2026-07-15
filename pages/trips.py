@@ -102,7 +102,7 @@ def toggle_modal(open_clicks, cancel_clicks, is_open):
 
 @callback(
     Output("new-trip-modal", "is_open", allow_duplicate=True),
-    Output("new-trip-name-error", "children"),
+    Output("new-trip-name-error", "children", allow_duplicate=True),
     Input("new-trip-create", "n_clicks"),
     State("new-trip-name", "value"),
     prevent_initial_call=True,
