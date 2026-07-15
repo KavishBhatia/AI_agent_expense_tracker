@@ -52,7 +52,11 @@ def layout(**kwargs):
         dcc.Location(id="trip-location"),
         dcc.Store(id="trip-id-store"),
         html.Div(id="te-feedback"),
-        html.Div(id="trip-csv-feedback"),
+        dcc.Loading(
+            html.Div(id="trip-csv-feedback"),
+            type="circle",
+            color="#0d9488",
+        ),
         html.Div(id="trip-detail-content"),
     ])
 
@@ -281,50 +285,82 @@ def save_expense(n_clicks, amount, merchant, category, description, date_val, tr
     prevent_initial_call=True,
 )
 def import_csv(contents, filename, trip_id, search):
-    if not contents or not trip_id:
+    if not contents:
         return dash.no_update, dash.no_update, dash.no_update
+    if not trip_id:
+        return dbc.Alert("Trip ID missing — try refreshing the page.", color="danger"), dash.no_update, dash.no_update
 
-    _, content_string = contents.split(",")
+    _, content_string = contents.split(",", 1)
     decoded = base64.b64decode(content_string)
     try:
         df = pd.read_csv(io.StringIO(decoded.decode("utf-8")))
+    except UnicodeDecodeError:
+        try:
+            df = pd.read_csv(io.StringIO(decoded.decode("latin-1")))
+        except Exception as exc:
+            return dbc.Alert(f"Could not parse CSV: {exc}", color="danger"), dash.no_update, dash.no_update
     except Exception as exc:
         return dbc.Alert(f"Could not parse CSV: {exc}", color="danger"), dash.no_update, dash.no_update
+
+    print(f"[trip import] columns in '{filename}': {list(df.columns)}")
 
     cols_lower = {c.lower(): c for c in df.columns}
     date_col = next((cols_lower[k] for k in _KNOWN_DATE_COLS if k in cols_lower), None)
     cost_col = next((cols_lower[k] for k in _KNOWN_COST_COLS if k in cols_lower), None)
     name_col = next((cols_lower[k] for k in _KNOWN_NAME_COLS if k in cols_lower), None)
 
+    print(f"[trip import] detected → date={date_col!r} cost={cost_col!r} name={name_col!r}")
+
     if not date_col or not cost_col:
         return dbc.Alert(
-            f"Could not detect date or amount columns. Found: {list(df.columns)}",
+            f"Could not detect date or amount columns. "
+            f"Columns found: {list(df.columns)}. "
+            f"Expected one of {sorted(_KNOWN_DATE_COLS)} for date and {sorted(_KNOWN_COST_COLS)} for amount.",
             color="warning",
         ), dash.no_update, dash.no_update
 
     items = []
+    skipped = 0
     for _, row in df.iterrows():
         try:
-            amount = float(str(row[cost_col]).replace(",", "."))
-            if pd.isna(amount):
-                raise ValueError("Missing amount")
+            raw_amount = str(row[cost_col]).replace(",", ".").strip()
+            # strip any currency symbols
+            raw_amount = "".join(c for c in raw_amount if c.isdigit() or c in ".+-")
+            amount = float(raw_amount)
+            if pd.isna(amount) or amount == 0:
+                skipped += 1
+                continue
             merchant = str(row[name_col]).strip() if name_col else None
-            if merchant in ("", "nan", "None"):
+            if merchant in ("", "nan", "None", "NaN"):
                 merchant = None
             norm_date = pd.to_datetime(str(row[date_col]), dayfirst=True).strftime("%Y-%m-%d")
             items.append({"description": merchant or "import", "merchant": merchant,
                           "amount": amount, "date": norm_date})
-        except Exception:
+        except Exception as exc:
+            print(f"[trip import] skipped row: {exc}")
+            skipped += 1
             continue
 
+    print(f"[trip import] parsed {len(items)} valid rows, skipped {skipped}")
+
     if not items:
-        return dbc.Alert("No valid rows found in CSV.", color="warning"), dash.no_update, dash.no_update
+        return dbc.Alert(
+            f"No valid rows found in CSV (skipped {skipped} rows). "
+            f"Check that the amount column contains numbers.",
+            color="warning",
+        ), dash.no_update, dash.no_update
 
     try:
         categorised = classify_expenses(items)
-    except Exception:
+        # guard against API returning fewer items than expected
+        if not categorised or len(categorised) != len(items):
+            print(f"[trip import] classify_expenses returned {len(categorised) if categorised else 0} items for {len(items)} — falling back")
+            categorised = ["Miscellaneous"] * len(items)
+    except Exception as exc:
+        print(f"[trip import] classify_expenses failed: {exc} — falling back to Miscellaneous")
         categorised = ["Miscellaneous"] * len(items)
 
+    inserted = 0
     for item, category in zip(items, categorised):
         insert_trip_expense(
             trip_id=trip_id,
@@ -334,6 +370,10 @@ def import_csv(contents, filename, trip_id, search):
             description=None,
             date=item["date"],
         )
+        inserted += 1
 
+    print(f"[trip import] inserted {inserted} expenses into trip {trip_id}")
+
+    extra = f" ({skipped} rows skipped)" if skipped else ""
     content, new_tid = render_trip(search)
-    return dbc.Alert(f"Imported {len(items)} expenses.", color="success", dismissable=True), content, new_tid
+    return dbc.Alert(f"Imported {inserted} expenses{extra}.", color="success", dismissable=True), content, new_tid
