@@ -315,9 +315,9 @@ def import_csv(contents, filename, trip_id, search):
 
     # prefix fallback: handles "Cost for 2", "Cost per person", etc.
     if not cost_col:
-        _COST_PREFIXES = ("cost", "amount", "price", "spent", "betrag", "preis", "kosten")
+        cost_prefixes = tuple(_KNOWN_COST_COLS)
         cost_col = next(
-            (orig for lower, orig in cols_lower.items() if lower.startswith(_COST_PREFIXES)),
+            (orig for lower, orig in cols_lower.items() if lower.startswith(cost_prefixes)),
             None,
         )
 
