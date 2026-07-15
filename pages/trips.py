@@ -62,6 +62,7 @@ layout = html.Div([
         dbc.ModalBody([
             dbc.Label("Trip name"),
             dbc.Input(id="new-trip-name", placeholder='e.g. "Barcelona May 2026"', type="text"),
+            html.Div(id="new-trip-name-error", className="text-danger small mt-1"),
         ]),
         dbc.ModalFooter([
             dbc.Button("Cancel", id="new-trip-cancel", color="secondary", n_clicks=0),
@@ -86,17 +87,29 @@ def refresh_trips(_):
     Output("new-trip-modal", "is_open"),
     Input("new-trip-btn", "n_clicks"),
     Input("new-trip-cancel", "n_clicks"),
-    Input("new-trip-create", "n_clicks"),
     State("new-trip-modal", "is_open"),
     prevent_initial_call=True,
 )
-def toggle_modal(open_clicks, cancel_clicks, create_clicks, is_open):
+def toggle_modal(open_clicks, cancel_clicks, is_open):
     ctx = dash.callback_context
     if not ctx.triggered:
         return is_open
     if ctx.triggered_id == "new-trip-btn":
         return True
     return False
+
+
+@callback(
+    Output("new-trip-modal", "is_open", allow_duplicate=True),
+    Output("new-trip-name-error", "children"),
+    Input("new-trip-create", "n_clicks"),
+    State("new-trip-name", "value"),
+    prevent_initial_call=True,
+)
+def validate_and_close(n_clicks, name):
+    if not name or not name.strip():
+        return True, "Trip name cannot be empty."
+    return False, ""
 
 
 @callback(
