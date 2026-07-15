@@ -1,14 +1,22 @@
 # expense_tracker_agent/trip_db.py
 import sqlite3
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
 TRIP_DB_PATH = Path("trips.db")
 
 
+@contextmanager
 def _conn():
-    return sqlite3.connect(TRIP_DB_PATH)
-
+    conn = sqlite3.connect(TRIP_DB_PATH)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    try:
+        yield conn
+        conn.commit()
+    finally:
+        conn.close()
 
 def init_trip_db() -> None:
     with _conn() as con:
