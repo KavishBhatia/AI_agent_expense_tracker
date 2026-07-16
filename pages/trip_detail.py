@@ -118,7 +118,7 @@ def render_trip(search):
                      title="Daily Spending",
                      color_discrete_sequence=["#e11d48"])
         fig.update_xaxes(type="category")
-        fig.update_layout(height=200, margin=dict(t=30, b=10, l=40, r=10))
+        fig.update_layout(height=300, margin=dict(t=30, b=10, l=40, r=10))
     else:
         chart_md = 4
         fig = go.Figure().add_annotation(text="No expenses yet", showarrow=False)
@@ -169,7 +169,7 @@ def render_trip(search):
                            style={"color": "#e11d48", "textDecoration": "none"}),
                 dbc.Collapse(
                     dcc.Graph(figure=fig, id="trip-daily-chart",
-                              style={"height": "200px"}),
+                              style={"height": "300px"}),
                     id="chart-collapse",
                     is_open=False,
                 ),
