@@ -13,7 +13,8 @@ from dash import ALL, Input, Output, State, callback, dcc, html
 from expense_tracker_agent.categoriser import classify_expenses
 from expense_tracker_agent.tools import CATEGORIES
 from expense_tracker_agent.trip_db import (
-    delete_trip_expense, fetch_trip, fetch_trip_expenses, insert_trip_expense,
+    delete_trip_expense, fetch_trip, fetch_trip_expense, fetch_trip_expenses,
+    insert_trip_expense, update_trip_expense,
 )
 
 dash.register_page(__name__, path="/trip", name="Trip Detail")
@@ -56,6 +57,7 @@ def layout(**kwargs):
         dcc.Location(id="trip-location"),
         dcc.Store(id="trip-id-store"),
         dcc.Store(id="pending-delete-trip-expense-id"),
+        dcc.Store(id="editing-trip-expense-id"),
         html.Div(id="te-feedback"),
         dcc.Loading(
             html.Div(id="trip-csv-feedback"),
@@ -73,6 +75,47 @@ def layout(**kwargs):
                            color="danger", n_clicks=0),
             ]),
         ], id="confirm-delete-trip-expense-modal", is_open=False),
+
+        dbc.Modal([
+            dbc.ModalHeader(dbc.ModalTitle("Edit Expense")),
+            dbc.ModalBody([
+                dbc.Row([
+                    dbc.Col([
+                        dbc.Label("Amount (€)", className="small"),
+                        dbc.Input(id="edit-te-amount", type="number", min=0, step=0.01),
+                    ], md=3),
+                    dbc.Col([
+                        dbc.Label("Merchant / Description", className="small"),
+                        dbc.Input(id="edit-te-merchant", type="text", placeholder="Optional"),
+                    ], md=4),
+                    dbc.Col([
+                        dbc.Label("Category", className="small"),
+                        dbc.Select(id="edit-te-category",
+                                   options=[{"label": c, "value": c} for c in CATEGORIES]),
+                    ], md=5),
+                ], className="mb-2 g-2"),
+                dbc.Row([
+                    dbc.Col([
+                        dbc.Label("Notes", className="small"),
+                        dbc.Input(id="edit-te-description", type="text", placeholder="Optional"),
+                    ], md=8),
+                    dbc.Col([
+                        dbc.Label("Date", className="small"),
+                        dcc.DatePickerSingle(id="edit-te-date",
+                                             display_format="DD MMM YYYY",
+                                             style={"width": "100%"}),
+                    ], md=4),
+                ], className="g-2"),
+                html.Div(id="edit-te-feedback", className="mt-2"),
+            ]),
+            dbc.ModalFooter([
+                dbc.Button("Cancel", id="edit-te-cancel", color="secondary", n_clicks=0),
+                dbc.Button("Save", id="edit-te-save", n_clicks=0,
+                           style={"backgroundColor": "#e11d48", "borderColor": "#e11d48",
+                                  "color": "#fff"}),
+            ]),
+        ], id="edit-trip-expense-modal", is_open=False, size="lg"),
+
         html.Div(id="trip-detail-content"),
     ])
 
@@ -132,12 +175,14 @@ def render_trip(search):
                                      "borderRadius": "4px", "padding": "2px 7px"})),
             html.Td(e["description"] or "—", className="text-muted small"),
             html.Td(f"€{e['amount']:.2f}", className="fw-semibold text-end"),
-            html.Td(
+            html.Td([
+                dbc.Button("✎", id={"type": "edit-trip-expense", "index": e["id"]},
+                           size="sm", color="link",
+                           style={"color": "#6c757d", "padding": "0 4px", "lineHeight": "1"}),
                 dbc.Button("×", id={"type": "del-trip-expense", "index": e["id"]},
                            size="sm", color="link",
                            style={"color": "#dc3545", "padding": "0 4px", "lineHeight": "1"}),
-                className="text-center",
-            ),
+            ], className="text-center text-nowrap"),
         ])
         for e in expenses
     ]
@@ -468,6 +513,90 @@ def handle_del_trip_expense_confirm(confirm_clicks, cancel_clicks, expense_id, s
         content, new_tid = render_trip(search)
         return False, content, new_tid
     return False, dash.no_update, dash.no_update
+
+
+@callback(
+    Output("editing-trip-expense-id", "data"),
+    Output("edit-trip-expense-modal", "is_open"),
+    Output("edit-te-amount", "value"),
+    Output("edit-te-merchant", "value"),
+    Output("edit-te-category", "value"),
+    Output("edit-te-description", "value"),
+    Output("edit-te-date", "date"),
+    Input({"type": "edit-trip-expense", "index": ALL}, "n_clicks"),
+    prevent_initial_call=True,
+)
+def open_edit_expense_modal(n_clicks_list):
+    import json
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return (dash.no_update,) * 7
+    for trigger in ctx.triggered:
+        if trigger["value"]:
+            expense_id = json.loads(trigger["prop_id"].split(".")[0])["index"]
+            expense = fetch_trip_expense(expense_id)
+            if not expense:
+                return (dash.no_update,) * 7
+            return (
+                expense_id,
+                True,
+                expense["amount"],
+                expense["merchant"],
+                expense["category"],
+                expense["description"],
+                expense["date"],
+            )
+    return (dash.no_update,) * 7
+
+
+@callback(
+    Output("edit-trip-expense-modal", "is_open", allow_duplicate=True),
+    Output("trip-detail-content", "children", allow_duplicate=True),
+    Output("trip-id-store", "data", allow_duplicate=True),
+    Output("edit-te-feedback", "children"),
+    Input("edit-te-save", "n_clicks"),
+    Input("edit-te-cancel", "n_clicks"),
+    State("editing-trip-expense-id", "data"),
+    State("edit-te-amount", "value"),
+    State("edit-te-merchant", "value"),
+    State("edit-te-category", "value"),
+    State("edit-te-description", "value"),
+    State("edit-te-date", "date"),
+    State("trip-location", "search"),
+    prevent_initial_call=True,
+)
+def save_edit_expense(save_clicks, cancel_clicks, expense_id,
+                      amount, merchant, category, description, date_val, search):
+    ctx = dash.callback_context
+    if ctx.triggered_id == "edit-te-cancel":
+        return False, dash.no_update, dash.no_update, ""
+    if not save_clicks or not expense_id:
+        return dash.no_update, dash.no_update, dash.no_update, dash.no_update
+    if not amount or float(amount) <= 0:
+        return (
+            True, dash.no_update, dash.no_update,
+            dbc.Alert("Amount must be greater than 0.", color="danger", className="py-1 small"),
+        )
+    if not category:
+        return (
+            True, dash.no_update, dash.no_update,
+            dbc.Alert("Category is required.", color="danger", className="py-1 small"),
+        )
+    if not date_val:
+        return (
+            True, dash.no_update, dash.no_update,
+            dbc.Alert("Date is required.", color="danger", className="py-1 small"),
+        )
+    update_trip_expense(
+        expense_id,
+        float(amount),
+        merchant or None,
+        category,
+        description or None,
+        date_val,
+    )
+    content, new_tid = render_trip(search)
+    return False, content, new_tid, ""
 
 
 @callback(
