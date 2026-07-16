@@ -41,7 +41,7 @@ def _trip_card(trip: dict):
             ], align="center"),
         ]),
         className="mb-3",
-        style={"borderLeft": "3px solid #0d9488", "borderRadius": "8px"},
+        style={"borderLeft": "3px solid #e11d48", "borderRadius": "8px"},
     )
 
 

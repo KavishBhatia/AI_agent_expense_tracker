@@ -60,7 +60,7 @@ def layout(**kwargs):
         dcc.Loading(
             html.Div(id="trip-csv-feedback"),
             type="circle",
-            color="#0d9488",
+            color="#e11d48",
         ),
         dbc.Modal([
             dbc.ModalHeader(dbc.ModalTitle("Delete expense?")),
@@ -114,7 +114,7 @@ def render_trip(search):
         fig = px.bar(daily, x="display", y="amount",
                      labels={"display": "Date", "amount": "€ Spent"},
                      title="Daily Spending",
-                     color_discrete_sequence=["#0d9488"])
+                     color_discrete_sequence=["#e11d48"])
         fig.update_xaxes(type="category")
         fig.update_layout(margin=dict(t=40, b=20))
     else:
@@ -125,7 +125,7 @@ def render_trip(search):
             html.Td(_fmt(e["date"])),
             html.Td(e["merchant"] or "—"),
             html.Td(html.Span(e["category"], className="small",
-                              style={"backgroundColor": "#14b8a6", "color": "#fff",
+                              style={"backgroundColor": "#f43f5e", "color": "#fff",
                                      "borderRadius": "4px", "padding": "2px 7px"})),
             html.Td(e["description"] or "—", className="text-muted small"),
             html.Td(f"€{e['amount']:.2f}", className="fw-semibold text-end"),
@@ -148,15 +148,15 @@ def render_trip(search):
                 html.P("Trip", className="text-muted small mb-1"),
                 html.H5(trip["name"], className="mb-0"),
                 html.Small(date_range, className="text-muted"),
-            ]), style={"borderTop": "3px solid #0d9488", "borderRadius": "8px"}), md=4),
+            ]), style={"borderTop": "3px solid #e11d48", "borderRadius": "8px"}), md=4),
             dbc.Col(dbc.Card(dbc.CardBody([
                 html.P("Total Spent", className="text-muted small mb-1"),
                 html.H3(f"€{trip['total']:.2f}", className="mb-0"),
-            ]), style={"borderTop": "3px solid #0d9488", "borderRadius": "8px"}), md=4),
+            ]), style={"borderTop": "3px solid #e11d48", "borderRadius": "8px"}), md=4),
             dbc.Col(dbc.Card(dbc.CardBody([
                 html.P("Duration", className="text-muted small mb-1"),
                 html.H3(f"{days} day{'s' if days != 1 else ''}", className="mb-0"),
-            ]), style={"borderTop": "3px solid #0d9488", "borderRadius": "8px"}), md=4),
+            ]), style={"borderTop": "3px solid #e11d48", "borderRadius": "8px"}), md=4),
         ], className="mb-4 g-3"),
 
         dbc.Row([
