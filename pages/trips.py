@@ -47,6 +47,7 @@ def _trip_card(trip: dict):
 
 layout = html.Div([
     dcc.Location(id="trips-location", refresh=True),
+    dcc.Store(id="pending-delete-trip-id"),
     dbc.Row([
         dbc.Col(html.H4("Trips", className="mb-0"), width="auto"),
         dbc.Col(
@@ -69,6 +70,15 @@ layout = html.Div([
             dbc.Button("Create", id="new-trip-create", color="primary", n_clicks=0),
         ]),
     ], id="new-trip-modal", is_open=False),
+
+    dbc.Modal([
+        dbc.ModalHeader(dbc.ModalTitle("Delete trip?")),
+        dbc.ModalBody(html.Div(id="del-trip-modal-body")),
+        dbc.ModalFooter([
+            dbc.Button("Cancel", id="confirm-del-trip-cancel", color="secondary", n_clicks=0),
+            dbc.Button("Delete", id="confirm-del-trip-btn", color="danger", n_clicks=0),
+        ]),
+    ], id="confirm-delete-trip-modal", is_open=False),
 ])
 
 
@@ -127,23 +137,44 @@ def create_and_redirect(n_clicks, name):
 
 
 @callback(
-    Output("trips-list", "children", allow_duplicate=True),
+    Output("confirm-delete-trip-modal", "is_open"),
+    Output("del-trip-modal-body", "children"),
+    Output("pending-delete-trip-id", "data"),
     Input({"type": "del-trip-btn", "index": ALL}, "n_clicks"),
     prevent_initial_call=True,
 )
-def handle_delete(n_clicks_list):
+def open_del_trip_modal(n_clicks_list):
     ctx = dash.callback_context
     if not ctx.triggered:
-        return dash.no_update
+        return dash.no_update, dash.no_update, dash.no_update
     for trigger in ctx.triggered:
         if trigger["value"]:
             tid = json.loads(trigger["prop_id"].split(".")[0])["index"]
-            delete_trip(tid)
-            break
-    trips = fetch_trips()
-    if not trips:
-        return html.P("No trips yet. Create one with '+ New Trip'.", className="text-muted")
-    return [_trip_card(t) for t in trips]
+            trips = fetch_trips()
+            trip = next((t for t in trips if t["id"] == tid), None)
+            name = trip["name"] if trip else f"trip #{tid}"
+            body = ["Delete ", html.Strong(name), "? This will permanently remove all its expenses."]
+            return True, body, tid
+    return dash.no_update, dash.no_update, dash.no_update
+
+
+@callback(
+    Output("confirm-delete-trip-modal", "is_open", allow_duplicate=True),
+    Output("trips-list", "children", allow_duplicate=True),
+    Input("confirm-del-trip-btn", "n_clicks"),
+    Input("confirm-del-trip-cancel", "n_clicks"),
+    State("pending-delete-trip-id", "data"),
+    prevent_initial_call=True,
+)
+def handle_del_trip_confirm(confirm_clicks, cancel_clicks, tid):
+    ctx = dash.callback_context
+    if ctx.triggered_id == "confirm-del-trip-btn" and confirm_clicks and tid:
+        delete_trip(tid)
+        trips = fetch_trips()
+        if not trips:
+            return False, html.P("No trips yet. Create one with '+ New Trip'.", className="text-muted")
+        return False, [_trip_card(t) for t in trips]
+    return False, dash.no_update
 
 
 @callback(

@@ -8,12 +8,12 @@ import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from dash import Input, Output, State, callback, dcc, html
+from dash import ALL, Input, Output, State, callback, dcc, html
 
 from expense_tracker_agent.categoriser import classify_expenses
 from expense_tracker_agent.tools import CATEGORIES
 from expense_tracker_agent.trip_db import (
-    fetch_trip, fetch_trip_expenses, insert_trip_expense,
+    delete_trip_expense, fetch_trip, fetch_trip_expenses, insert_trip_expense,
 )
 
 dash.register_page(__name__, path="/trip", name="Trip Detail")
@@ -55,12 +55,24 @@ def layout(**kwargs):
     return html.Div([
         dcc.Location(id="trip-location"),
         dcc.Store(id="trip-id-store"),
+        dcc.Store(id="pending-delete-trip-expense-id"),
         html.Div(id="te-feedback"),
         dcc.Loading(
             html.Div(id="trip-csv-feedback"),
             type="circle",
             color="#0d9488",
         ),
+        dbc.Modal([
+            dbc.ModalHeader(dbc.ModalTitle("Delete expense?")),
+            dbc.ModalBody(html.Div(id="del-trip-expense-modal-body",
+                                   children="This will permanently delete the expense.")),
+            dbc.ModalFooter([
+                dbc.Button("Cancel", id="confirm-del-trip-expense-cancel",
+                           color="secondary", n_clicks=0),
+                dbc.Button("Delete", id="confirm-del-trip-expense-btn",
+                           color="danger", n_clicks=0),
+            ]),
+        ], id="confirm-delete-trip-expense-modal", is_open=False),
         html.Div(id="trip-detail-content"),
     ])
 
@@ -117,6 +129,12 @@ def render_trip(search):
                                      "borderRadius": "4px", "padding": "2px 7px"})),
             html.Td(e["description"] or "—", className="text-muted small"),
             html.Td(f"€{e['amount']:.2f}", className="fw-semibold text-end"),
+            html.Td(
+                dbc.Button("×", id={"type": "del-trip-expense", "index": e["id"]},
+                           size="sm", color="link",
+                           style={"color": "#dc3545", "padding": "0 4px", "lineHeight": "1"}),
+                className="text-center",
+            ),
         ])
         for e in expenses
     ]
@@ -209,10 +227,10 @@ def render_trip(search):
             [
                 html.Thead(html.Tr([
                     html.Th("Date"), html.Th("Merchant"), html.Th("Category"),
-                    html.Th("Description"), html.Th("Amount", className="text-end"),
+                    html.Th("Description"), html.Th("Amount", className="text-end"), html.Th(""),
                 ])),
                 html.Tbody(expense_rows if expense_rows else [
-                    html.Tr([html.Td("No expenses yet", colSpan=5,
+                    html.Tr([html.Td("No expenses yet", colSpan=6,
                                      className="text-muted text-center")])
                 ]),
             ],
@@ -395,3 +413,42 @@ def import_csv(contents, filename, trip_id, search):
     extra = f" ({skipped} rows skipped)" if skipped else ""
     content, new_tid = render_trip(search)
     return dbc.Alert(f"Imported {inserted} expenses{extra}.", color="success", dismissable=True), content, new_tid
+
+
+@callback(
+    Output("pending-delete-trip-expense-id", "data"),
+    Output("confirm-delete-trip-expense-modal", "is_open"),
+    Output("del-trip-expense-modal-body", "children"),
+    Input({"type": "del-trip-expense", "index": ALL}, "n_clicks"),
+    prevent_initial_call=True,
+)
+def open_del_trip_expense_modal(n_clicks_list):
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return dash.no_update, dash.no_update, dash.no_update
+    import json
+    for trigger in ctx.triggered:
+        if trigger["value"]:
+            expense_id = json.loads(trigger["prop_id"].split(".")[0])["index"]
+            body = ["Permanently delete this expense?"]
+            return expense_id, True, body
+    return dash.no_update, dash.no_update, dash.no_update
+
+
+@callback(
+    Output("confirm-delete-trip-expense-modal", "is_open", allow_duplicate=True),
+    Output("trip-detail-content", "children", allow_duplicate=True),
+    Output("trip-id-store", "data", allow_duplicate=True),
+    Input("confirm-del-trip-expense-btn", "n_clicks"),
+    Input("confirm-del-trip-expense-cancel", "n_clicks"),
+    State("pending-delete-trip-expense-id", "data"),
+    State("trip-location", "search"),
+    prevent_initial_call=True,
+)
+def handle_del_trip_expense_confirm(confirm_clicks, cancel_clicks, expense_id, search):
+    ctx = dash.callback_context
+    if ctx.triggered_id == "confirm-del-trip-expense-btn" and confirm_clicks and expense_id:
+        delete_trip_expense(expense_id)
+        content, new_tid = render_trip(search)
+        return False, content, new_tid
+    return False, dash.no_update, dash.no_update

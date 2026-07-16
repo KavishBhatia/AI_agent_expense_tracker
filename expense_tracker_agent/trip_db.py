@@ -125,3 +125,8 @@ def delete_trip(trip_id: int) -> None:
     with _conn() as con:
         con.execute("PRAGMA foreign_keys = ON")
         con.execute("DELETE FROM trips WHERE id = ?", (trip_id,))
+
+
+def delete_trip_expense(expense_id: int) -> None:
+    with _conn() as con:
+        con.execute("DELETE FROM trip_expenses WHERE id = ?", (expense_id,))

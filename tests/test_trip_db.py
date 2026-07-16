@@ -6,7 +6,7 @@ from unittest.mock import patch
 import expense_tracker_agent.trip_db as trip_db_module
 from expense_tracker_agent.trip_db import (
     init_trip_db, create_trip, fetch_trips, fetch_trip,
-    fetch_trip_expenses, insert_trip_expense, delete_trip,
+    fetch_trip_expenses, insert_trip_expense, delete_trip, delete_trip_expense,
 )
 
 def _temp_db() -> Path:
@@ -87,3 +87,26 @@ class TestDeleteTrip(BaseTripDbTest):
         delete_trip(tid)
         self.assertEqual(fetch_trips(), [])
         self.assertEqual(fetch_trip_expenses(tid), [])
+
+
+class TestDeleteTripExpense(BaseTripDbTest):
+    def test_delete_removes_single_expense(self):
+        tid = create_trip("Amsterdam")
+        eid = insert_trip_expense(tid, 8.0, "Bakker", "Food & Dining", None, "2026-08-01")
+        insert_trip_expense(tid, 15.0, "Fiets", "Transport", None, "2026-08-02")
+        delete_trip_expense(eid)
+        rows = fetch_trip_expenses(tid)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["merchant"], "Fiets")
+
+    def test_delete_updates_trip_total(self):
+        tid = create_trip("Prague")
+        eid = insert_trip_expense(tid, 20.0, "Pivnice", "Food & Dining", None, "2026-09-01")
+        insert_trip_expense(tid, 10.0, "Tram", "Transport", None, "2026-09-02")
+        delete_trip_expense(eid)
+        t = fetch_trip(tid)
+        self.assertAlmostEqual(t["total"], 10.0)
+        self.assertEqual(t["count"], 1)
+
+    def test_delete_nonexistent_is_silent(self):
+        delete_trip_expense(999)  # should not raise
