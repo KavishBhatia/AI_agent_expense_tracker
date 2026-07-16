@@ -283,33 +283,61 @@ def show_day_detail(click_data):
 
 
 @callback(
+    Output("pending-del-expense-id", "data"),
+    Output("confirm-del-expense-modal", "is_open"),
+    Output("confirm-del-expense-body", "children"),
+    Input({"type": "del-expense", "index": ALL}, "n_clicks"),
+    prevent_initial_call=True,
+)
+def open_del_expense_modal(n_clicks_list):
+    import json
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return dash.no_update, dash.no_update, dash.no_update
+    for trigger in ctx.triggered:
+        if trigger["value"]:
+            expense_id = json.loads(trigger["prop_id"].split(".")[0])["index"]
+            rows = fetch_expenses()
+            row = next((r for r in rows if r["id"] == expense_id), None)
+            label = f"{row['merchant'] or row['description']} €{row['amount']:.2f}" if row else f"expense #{expense_id}"
+            body = ["Delete ", html.Strong(label), "?"]
+            return expense_id, True, body
+    return dash.no_update, dash.no_update, dash.no_update
+
+
+@callback(
     Output("expense-deleted-store", "data"),
     Output("last-deleted-store", "data"),
     Output("undo-toast-container", "style"),
     Output("undo-toast-text", "children"),
-    Input({"type": "del-expense", "index": ALL}, "n_clicks"),
+    Output("confirm-del-expense-modal", "is_open", allow_duplicate=True),
+    Input("confirm-del-expense-btn", "n_clicks"),
+    State("pending-del-expense-id", "data"),
     prevent_initial_call=True,
 )
-def handle_delete(n_clicks_list):
-    import json
-    ctx = dash.callback_context
-    if not ctx.triggered:
-        return dash.no_update, dash.no_update, dash.no_update, dash.no_update
-    for trigger in ctx.triggered:
-        if trigger["value"]:
-            expense_id = json.loads(trigger["prop_id"].split(".")[0])["index"]
-            # Fetch the row before soft-deleting so we can show it in the toast
-            rows = fetch_expenses()
-            row = next((r for r in rows if r["id"] == expense_id), None)
-            delete_expense(expense_id)
-            label = f"{row['merchant'] or row['description']} €{row['amount']:.2f}" if row else f"#{expense_id}"
-            return (
-                {"action": "delete", "id": expense_id},
-                {"id": expense_id, "label": label},
-                _TOAST_VISIBLE,
-                f"Deleted: {label}",
-            )
-    return dash.no_update, dash.no_update, dash.no_update, dash.no_update
+def handle_delete(n_clicks, expense_id):
+    if not n_clicks or not expense_id:
+        return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+    rows = fetch_expenses()
+    row = next((r for r in rows if r["id"] == expense_id), None)
+    delete_expense(expense_id)
+    label = f"{row['merchant'] or row['description']} €{row['amount']:.2f}" if row else f"#{expense_id}"
+    return (
+        {"action": "delete", "id": expense_id},
+        {"id": expense_id, "label": label},
+        _TOAST_VISIBLE,
+        f"Deleted: {label}",
+        False,
+    )
+
+
+@callback(
+    Output("confirm-del-expense-modal", "is_open", allow_duplicate=True),
+    Input("confirm-del-expense-cancel", "n_clicks"),
+    prevent_initial_call=True,
+)
+def cancel_del_expense(n_clicks):
+    return False
 
 
 @callback(

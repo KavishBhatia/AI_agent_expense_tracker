@@ -67,6 +67,19 @@ app.layout = html.Div(
         dcc.Store(id="expense-deleted-store"),
         dcc.Store(id="last-deleted-store"),
         dcc.Store(id="budget-updated-store"),
+        dcc.Store(id="pending-del-expense-id"),
+        # Confirm-delete modal for main expenses
+        dbc.Modal([
+            dbc.ModalHeader(dbc.ModalTitle("Delete expense?")),
+            dbc.ModalBody(html.Div(id="confirm-del-expense-body",
+                                   children="This will permanently delete the expense.")),
+            dbc.ModalFooter([
+                dbc.Button("Cancel", id="confirm-del-expense-cancel",
+                           color="secondary", n_clicks=0),
+                dbc.Button("Delete", id="confirm-del-expense-btn",
+                           color="danger", n_clicks=0),
+            ]),
+        ], id="confirm-del-expense-modal", is_open=False),
         # Undo toast — always in DOM regardless of active page
         html.Div(
             id="undo-toast-container",
