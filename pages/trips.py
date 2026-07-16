@@ -34,7 +34,9 @@ def _trip_card(trip: dict):
                 ], md=3),
                 dbc.Col([
                     dbc.Button("Open", id={"type": "open-trip-btn", "index": trip["id"]},
-                               color="outline-primary", size="sm", className="me-1"),
+                               size="sm", className="me-1",
+                               style={"color": "#e11d48", "borderColor": "#e11d48",
+                                      "backgroundColor": "transparent"}),
                     dbc.Button("✕", id={"type": "del-trip-btn", "index": trip["id"]},
                                color="outline-danger", size="sm"),
                 ], md=2, className="d-flex align-items-center justify-content-end"),
@@ -51,7 +53,8 @@ layout = html.Div([
     dbc.Row([
         dbc.Col(html.H4("Trips", className="mb-0"), width="auto"),
         dbc.Col(
-            dbc.Button("+ New Trip", id="new-trip-btn", color="primary", size="sm", n_clicks=0),
+            dbc.Button("+ New Trip", id="new-trip-btn", size="sm", n_clicks=0,
+                       style={"backgroundColor": "#e11d48", "borderColor": "#e11d48", "color": "#fff"}),
             width="auto", className="ms-auto",
         ),
     ], align="center", className="mb-4"),
@@ -67,7 +70,8 @@ layout = html.Div([
         ]),
         dbc.ModalFooter([
             dbc.Button("Cancel", id="new-trip-cancel", color="secondary", n_clicks=0),
-            dbc.Button("Create", id="new-trip-create", color="primary", n_clicks=0),
+            dbc.Button("Create", id="new-trip-create", n_clicks=0,
+                       style={"backgroundColor": "#e11d48", "borderColor": "#e11d48", "color": "#fff"}),
         ]),
     ], id="new-trip-modal", is_open=False),
 

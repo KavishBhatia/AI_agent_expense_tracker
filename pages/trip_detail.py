@@ -165,10 +165,12 @@ def render_trip(search):
 
         dbc.Row([
             dbc.Col([
-                dbc.Button("+ Add Expense", id="add-expense-trip-btn", color="primary",
-                           size="sm", n_clicks=0, className="me-2"),
-                dbc.Button("Import CSV", id="import-csv-trip-btn", color="outline-secondary",
-                           size="sm", n_clicks=0),
+                dbc.Button("+ Add Expense", id="add-expense-trip-btn", size="sm",
+                           n_clicks=0, className="me-2",
+                           style={"backgroundColor": "#e11d48", "borderColor": "#e11d48", "color": "#fff"}),
+                dbc.Button("Import CSV", id="import-csv-trip-btn", size="sm", n_clicks=0,
+                           style={"color": "#e11d48", "borderColor": "#e11d48",
+                                  "backgroundColor": "transparent"}),
             ]),
         ], className="mb-3"),
 
@@ -200,7 +202,8 @@ def render_trip(search):
                                              style={"width": "100%"}),
                     ], md=2),
                 ], className="mb-2"),
-                dbc.Button("Save Expense", id="te-save-btn", color="primary", size="sm", n_clicks=0),
+                dbc.Button("Save Expense", id="te-save-btn", size="sm", n_clicks=0,
+                           style={"backgroundColor": "#e11d48", "borderColor": "#e11d48", "color": "#fff"}),
             ])),
             id="add-expense-collapse",
             is_open=False,
