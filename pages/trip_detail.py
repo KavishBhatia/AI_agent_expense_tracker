@@ -111,6 +111,8 @@ def render_trip(search):
         df = pd.DataFrame(expenses)
         daily = df.groupby("date")["amount"].sum().reset_index().sort_values("date")
         daily["display"] = daily["date"].apply(_fmt)
+        n_bars = len(daily)
+        chart_md = 4 if n_bars <= 3 else (6 if n_bars <= 6 else 12)
         fig = px.bar(daily, x="display", y="amount",
                      labels={"display": "Date", "amount": "€ Spent"},
                      title="Daily Spending",
@@ -118,6 +120,7 @@ def render_trip(search):
         fig.update_xaxes(type="category")
         fig.update_layout(height=200, margin=dict(t=30, b=10, l=40, r=10))
     else:
+        chart_md = 4
         fig = go.Figure().add_annotation(text="No expenses yet", showarrow=False)
 
     expense_rows = [
@@ -170,7 +173,7 @@ def render_trip(search):
                     id="chart-collapse",
                     is_open=False,
                 ),
-            ]),
+            ], md=chart_md),
         ], className="mb-2"),
 
         dbc.Row([
