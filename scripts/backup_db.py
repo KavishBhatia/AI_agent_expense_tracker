@@ -75,7 +75,7 @@ def _local_backup() -> Path:
     return dest
 
 
-def _local_backup_trips() -> "Path | None":
+def _local_backup_trips() -> Path | None:
     """Back up trips.db if it exists. Returns the backup path, or None if trips.db is absent."""
     import sqlite3
 
