@@ -7,6 +7,7 @@ import expense_tracker_agent.trip_db as trip_db_module
 from expense_tracker_agent.trip_db import (
     init_trip_db, create_trip, fetch_trips, fetch_trip,
     fetch_trip_expenses, insert_trip_expense, delete_trip, delete_trip_expense,
+    fetch_trip_expense, update_trip_expense,
 )
 
 def _temp_db() -> Path:
@@ -110,3 +111,55 @@ class TestDeleteTripExpense(BaseTripDbTest):
 
     def test_delete_nonexistent_is_silent(self):
         delete_trip_expense(999)  # should not raise
+
+
+class TestFetchTripExpense(BaseTripDbTest):
+    def test_fetch_returns_correct_row(self):
+        tid = create_trip("Seville")
+        eid = insert_trip_expense(tid, 12.5, "Tapas Bar", "Food & Dining", "tapas", "2026-10-01")
+        row = fetch_trip_expense(eid)
+        self.assertIsNotNone(row)
+        self.assertEqual(row["id"], eid)
+        self.assertAlmostEqual(row["amount"], 12.5)
+        self.assertEqual(row["merchant"], "Tapas Bar")
+        self.assertEqual(row["category"], "Food & Dining")
+        self.assertEqual(row["description"], "tapas")
+        self.assertEqual(row["date"], "2026-10-01")
+
+    def test_fetch_returns_none_for_missing(self):
+        self.assertIsNone(fetch_trip_expense(9999))
+
+    def test_fetch_nullable_fields(self):
+        tid = create_trip("Bruges")
+        eid = insert_trip_expense(tid, 5.0, None, "Miscellaneous", None, "2026-11-01")
+        row = fetch_trip_expense(eid)
+        self.assertIsNone(row["merchant"])
+        self.assertIsNone(row["description"])
+
+
+class TestUpdateTripExpense(BaseTripDbTest):
+    def test_update_changes_fields(self):
+        tid = create_trip("Ghent")
+        eid = insert_trip_expense(tid, 10.0, "OldMerchant", "Transport", "old note", "2026-12-01")
+        update_trip_expense(eid, 25.0, "NewMerchant", "Food & Dining", "new note", "2026-12-05")
+        row = fetch_trip_expense(eid)
+        self.assertAlmostEqual(row["amount"], 25.0)
+        self.assertEqual(row["merchant"], "NewMerchant")
+        self.assertEqual(row["category"], "Food & Dining")
+        self.assertEqual(row["description"], "new note")
+        self.assertEqual(row["date"], "2026-12-05")
+
+    def test_update_reflects_in_trip_total(self):
+        tid = create_trip("Antwerp")
+        eid = insert_trip_expense(tid, 10.0, "Shop", "Groceries", None, "2026-12-10")
+        update_trip_expense(eid, 30.0, "Shop", "Groceries", None, "2026-12-10")
+        t = fetch_trip(tid)
+        self.assertAlmostEqual(t["total"], 30.0)
+
+    def test_update_nullable_to_none(self):
+        tid = create_trip("Liege")
+        eid = insert_trip_expense(tid, 8.0, "Bistro", "Food & Dining", "lunch", "2026-12-15")
+        update_trip_expense(eid, 8.0, None, "Food & Dining", None, "2026-12-15")
+        row = fetch_trip_expense(eid)
+        self.assertIsNone(row["merchant"])
+        self.assertIsNone(row["description"])

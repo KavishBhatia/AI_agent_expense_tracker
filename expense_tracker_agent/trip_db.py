@@ -130,3 +130,29 @@ def delete_trip(trip_id: int) -> None:
 def delete_trip_expense(expense_id: int) -> None:
     with _conn() as con:
         con.execute("DELETE FROM trip_expenses WHERE id = ?", (expense_id,))
+
+
+def fetch_trip_expense(expense_id: int) -> dict | None:
+    sql = """SELECT id, trip_id, amount, merchant, category, description, date
+             FROM trip_expenses WHERE id = ?"""
+    with _conn() as con:
+        con.row_factory = sqlite3.Row
+        row = con.execute(sql, (expense_id,)).fetchone()
+    return dict(row) if row else None
+
+
+def update_trip_expense(
+    expense_id: int,
+    amount: float,
+    merchant: str | None,
+    category: str,
+    description: str | None,
+    date: str,
+) -> None:
+    with _conn() as con:
+        con.execute(
+            """UPDATE trip_expenses
+               SET amount=?, merchant=?, category=?, description=?, date=?
+               WHERE id=?""",
+            (amount, merchant, category, description, date, expense_id),
+        )
