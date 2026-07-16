@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Daily backup script for expenses.db.
+Daily backup script for expenses.db and trips.db.
 
 Usage:
   python scripts/backup_db.py          # run backup (local + Google Drive)
@@ -34,6 +34,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parents[1]
 DB_PATH = PROJECT_ROOT / "expenses.db"
+TRIPS_DB_PATH = PROJECT_ROOT / "trips.db"
 
 BACKUP_DIR = Path.home() / "Library" / "Application Support" / "ExpenseTracker" / "backups"
 LOG_FILE = Path.home() / "Library" / "Logs" / "expense_tracker_backup.log"
@@ -74,17 +75,35 @@ def _local_backup() -> Path:
     return dest
 
 
+def _local_backup_trips() -> "Path | None":
+    """Back up trips.db if it exists. Returns the backup path, or None if trips.db is absent."""
+    import sqlite3
+
+    if not TRIPS_DB_PATH.exists():
+        log.info("trips.db not found — skipping trips backup")
+        return None
+
+    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+    today = datetime.now().strftime("%Y-%m-%d")
+    dest = BACKUP_DIR / f"trips_{today}.db"
+    with sqlite3.connect(str(TRIPS_DB_PATH)) as src, sqlite3.connect(str(dest)) as dst:
+        src.backup(dst)
+    log.info("Local trips backup saved: %s", dest)
+    return dest
+
+
 def _prune_old_backups() -> None:
-    """Delete local backups older than KEEP_DAYS days."""
+    """Delete local backups older than KEEP_DAYS days (both expenses and trips)."""
     cutoff = datetime.now() - timedelta(days=KEEP_DAYS)
-    for f in BACKUP_DIR.glob("expenses_*.db"):
-        try:
-            file_date = datetime.strptime(f.stem.replace("expenses_", ""), "%Y-%m-%d")
-            if file_date < cutoff:
-                f.unlink()
-                log.info("Pruned old backup: %s", f.name)
-        except ValueError:
-            pass  # skip files that don't match the naming pattern
+    for prefix in ("expenses", "trips"):
+        for f in BACKUP_DIR.glob(f"{prefix}_*.db"):
+            try:
+                file_date = datetime.strptime(f.stem.replace(f"{prefix}_", ""), "%Y-%m-%d")
+                if file_date < cutoff:
+                    f.unlink()
+                    log.info("Pruned old backup: %s", f.name)
+            except ValueError:
+                pass  # skip files that don't match the naming pattern
 
 
 # ── Google Drive ──────────────────────────────────────────────────────────────
@@ -229,10 +248,13 @@ def main() -> None:
 
     log.info("=== Expense Tracker backup started ===")
     local_file = _local_backup()
+    local_trips_file = _local_backup_trips()
     _prune_old_backups()
 
     if not args.local:
         _upload_to_gdrive(local_file)
+        if local_trips_file:
+            _upload_to_gdrive(local_trips_file)
 
     log.info("=== Backup complete ===")
 
