@@ -18,7 +18,7 @@ _CARD_STYLE = {"borderTop": f"3px solid {_TEAL}", "borderRadius": "8px"}
 
 
 def _last_local_backup() -> tuple[str, str]:
-    """Return (date_str, filename) of the most recent local backup, or ('Never', '')."""
+    """Return (date_str, filename) of the most recent local expenses backup, or ('Never', '')."""
     if not _BACKUP_DIR.exists():
         return "Never", ""
     files = sorted(_BACKUP_DIR.glob("expenses_*.db"), reverse=True)
@@ -27,6 +27,21 @@ def _last_local_backup() -> tuple[str, str]:
     latest = files[0]
     try:
         d = datetime.strptime(latest.stem.replace("expenses_", ""), "%Y-%m-%d")
+        return d.strftime("%d %b %Y"), latest.name
+    except ValueError:
+        return latest.stem, latest.name
+
+
+def _last_local_trips_backup() -> tuple[str, str]:
+    """Return (date_str, filename) of the most recent local trips backup, or ('Never', '')."""
+    if not _BACKUP_DIR.exists():
+        return "Never", ""
+    files = sorted(_BACKUP_DIR.glob("trips_*.db"), reverse=True)
+    if not files:
+        return "Never", ""
+    latest = files[0]
+    try:
+        d = datetime.strptime(latest.stem.replace("trips_", ""), "%Y-%m-%d")
         return d.strftime("%d %b %Y"), latest.name
     except ValueError:
         return latest.stem, latest.name
@@ -58,16 +73,19 @@ def _status_card(title: str, value: str, sub: str = "", ok: bool = True):
     ]
     if sub:
         children.append(html.Small(sub, className="text-muted"))
-    return dbc.Col(dbc.Card(dbc.CardBody(children), style=card_style), md=4)
+    return dbc.Col(dbc.Card(dbc.CardBody(children), style=card_style), md=3)
 
 
 def _build_status():
     local_date, local_file = _last_local_backup()
+    trips_date, trips_file = _last_local_trips_backup()
     gdrive_date = _last_gdrive_backup()
     local_ok = local_date != "Never"
+    trips_ok = trips_date != "Never"
     gdrive_ok = gdrive_date not in ("Never", "Unknown")
     return dbc.Row([
-        _status_card("Last Local Backup", local_date, local_file, ok=local_ok),
+        _status_card("Last Expenses Backup", local_date, local_file, ok=local_ok),
+        _status_card("Last Trips Backup", trips_date, trips_file, ok=trips_ok),
         _status_card("Last Google Drive Backup", gdrive_date, ok=gdrive_ok),
         _status_card(
             "Backup Location",
