@@ -116,7 +116,7 @@ def render_trip(search):
                      title="Daily Spending",
                      color_discrete_sequence=["#e11d48"])
         fig.update_xaxes(type="category")
-        fig.update_layout(margin=dict(t=40, b=20))
+        fig.update_layout(height=200, margin=dict(t=30, b=10, l=40, r=10))
     else:
         fig = go.Figure().add_annotation(text="No expenses yet", showarrow=False)
 
@@ -160,8 +160,18 @@ def render_trip(search):
         ], className="mb-4 g-3"),
 
         dbc.Row([
-            dbc.Col(dcc.Graph(figure=fig, id="trip-daily-chart"), md=12),
-        ], className="mb-4"),
+            dbc.Col([
+                dbc.Button("▼ Daily Spending", id="chart-toggle-btn", color="link",
+                           size="sm", n_clicks=0, className="ps-0 mb-1",
+                           style={"color": "#e11d48", "textDecoration": "none"}),
+                dbc.Collapse(
+                    dcc.Graph(figure=fig, id="trip-daily-chart",
+                              style={"height": "200px"}),
+                    id="chart-collapse",
+                    is_open=False,
+                ),
+            ]),
+        ], className="mb-2"),
 
         dbc.Row([
             dbc.Col([
@@ -455,3 +465,16 @@ def handle_del_trip_expense_confirm(confirm_clicks, cancel_clicks, expense_id, s
         content, new_tid = render_trip(search)
         return False, content, new_tid
     return False, dash.no_update, dash.no_update
+
+
+@callback(
+    Output("chart-collapse", "is_open"),
+    Output("chart-toggle-btn", "children"),
+    Input("chart-toggle-btn", "n_clicks"),
+    State("chart-collapse", "is_open"),
+    prevent_initial_call=True,
+)
+def toggle_chart(n_clicks, is_open):
+    if is_open:
+        return False, "▼ Daily Spending"
+    return True, "▲ Hide Chart"
