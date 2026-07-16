@@ -177,8 +177,9 @@ def render_trip(search):
             html.Td(f"€{e['amount']:.2f}", className="fw-semibold text-end"),
             html.Td([
                 dbc.Button("✎", id={"type": "edit-trip-expense", "index": e["id"]},
-                           size="sm", color="link",
-                           style={"color": "#6c757d", "padding": "0 4px", "lineHeight": "1"}),
+                           size="sm", color="link", title="Edit expense",
+                           style={"color": "#6c757d", "padding": "0 4px", "lineHeight": "1"},
+                           **{"aria-label": "Edit expense"}),
                 dbc.Button("×", id={"type": "del-trip-expense", "index": e["id"]},
                            size="sm", color="link",
                            style={"color": "#dc3545", "padding": "0 4px", "lineHeight": "1"}),
