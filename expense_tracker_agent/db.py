@@ -26,8 +26,7 @@ def normalize_merchant(name: str | None) -> str | None:
     stripped = name.strip()
     if not stripped:
         return None
-    key = stripped.lower()
-    return _MERCHANT_CANONICAL.get(key, stripped)
+    return _MERCHANT_CANONICAL.get(stripped.lower(), stripped)
 
 
 @contextmanager
@@ -81,11 +80,16 @@ def init_db() -> None:
         conn.execute("UPDATE expense_items SET category = 'Commute' WHERE category = 'Transport'")
         conn.execute("UPDATE budgets SET category = 'Commute' WHERE category = 'Transport'")
         # Migration: normalize known merchant names to canonical casing
-        for lower, canonical in _MERCHANT_CANONICAL.items():
-            conn.execute(
-                "UPDATE expenses SET merchant = ? WHERE lower(merchant) = ?",
-                (canonical, lower),
-            )
+        rows = conn.execute(
+            "SELECT id, merchant FROM expenses WHERE merchant IS NOT NULL AND merchant != ''"
+        ).fetchall()
+        for r in rows:
+            normalized = normalize_merchant(r["merchant"])
+            if normalized != r["merchant"]:
+                conn.execute(
+                    "UPDATE expenses SET merchant = ? WHERE id = ?",
+                    (normalized, r["id"]),
+                )
 
 
 def insert_expense(
@@ -163,6 +167,7 @@ def fetch_expense_items_by_parent_ids(parent_ids: list[int]) -> dict[int, list[d
 
 
 def expense_exists(date: str, merchant: str, amount: float) -> bool:
+    merchant = normalize_merchant(merchant)
     with _conn() as conn:
         row = conn.execute(
             "SELECT 1 FROM expenses WHERE date=? AND merchant=? AND amount=?",
@@ -172,6 +177,7 @@ def expense_exists(date: str, merchant: str, amount: float) -> bool:
 
 
 def find_parent_expense(merchant: str, date: str) -> Optional[int]:
+    merchant = normalize_merchant(merchant)
     with _conn() as conn:
         row = conn.execute(
             "SELECT id FROM expenses WHERE merchant=? AND date=? ORDER BY id DESC LIMIT 1",
