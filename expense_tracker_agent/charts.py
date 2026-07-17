@@ -173,6 +173,48 @@ def fig_sub_expense_breakdown(start_date: str, end_date: str) -> Figure:
     return fig
 
 
+def fig_weekly_groceries_trend(start_date: str, end_date: str) -> Figure:
+    import numpy as np
+    rows = fetch_expenses(start_date, end_date)
+    if not rows:
+        return go.Figure().add_annotation(text="No data yet", showarrow=False)
+    df = pd.DataFrame(rows)
+    df = df[df["category"] == "Groceries"]
+    if df.empty:
+        return go.Figure().add_annotation(text="No grocery data in this period", showarrow=False)
+    df["week"] = pd.to_datetime(df["date"]).dt.strftime("%G-W%V")
+    weekly = (
+        df.groupby("week")["amount"].sum()
+        .reset_index()
+        .rename(columns={"amount": "total"})
+        .sort_values("week")
+    )
+    x_idx = list(range(len(weekly)))
+    y = weekly["total"].values
+    m, b = np.polyfit(x_idx, y, 1)
+    trend = [m * xi + b for xi in x_idx]
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=weekly["week"], y=weekly["total"],
+        mode="markers",
+        name="Weekly total",
+        marker=dict(color="#0d9488", size=9),
+    ))
+    fig.add_trace(go.Scatter(
+        x=weekly["week"], y=trend,
+        mode="lines",
+        name="Trend",
+        line=dict(color="#f59e0b", dash="dash", width=2),
+    ))
+    fig.update_layout(
+        title="Weekly Grocery Spending",
+        xaxis=dict(title="Week", type="category"),
+        yaxis_title="€ Spent",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+    )
+    return fig
+
+
 def fig_heatmap(start_date: str, end_date: str) -> Figure:
     df = heatmap_data(start_date, end_date)
     if df.empty:
