@@ -114,7 +114,7 @@ layout = html.Div([
     # Budget section (collapsible)
     dbc.Row(dbc.Col([
         dbc.Button(
-            "Monthly Budgets ▼",
+            "Monthly Budgets ▶",
             id="budget-toggle-btn",
             color="link",
             className="p-0 mb-2 text-decoration-none fw-semibold",
@@ -124,7 +124,7 @@ layout = html.Div([
         dbc.Collapse(
             html.Div(id="budget-section"),
             id="budget-collapse",
-            is_open=True,
+            is_open=False,
         ),
     ], md=12), className="mb-4"),
 
