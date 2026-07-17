@@ -1,10 +1,36 @@
 # charts.py
+from datetime import datetime as _dt, timedelta as _td
+
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.graph_objects import Figure
 
 from expense_tracker_agent.db import fetch_expense_items, fetch_expenses
+
+
+def _week_start(iso_week: str):
+    """Return the Monday date for an ISO week string like '2026-W03'."""
+    return _dt.strptime(iso_week + "-1", "%G-W%V-%u").date()
+
+
+def _week_label(iso_week: str) -> str:
+    """Convert '2026-W03' to '12.01 Mon – 18.01 Sun'."""
+    monday = _week_start(iso_week)
+    sunday = monday + _td(days=6)
+    return (
+        f"{monday.day}.{monday.strftime('%m')} {monday.strftime('%a')}"
+        f" – {sunday.day}.{sunday.strftime('%m')} {sunday.strftime('%a')}"
+    )
+
+
+def _add_month_separators(fig, iso_weeks: list) -> None:
+    """Add faint dotted vlines wherever consecutive weeks cross a month boundary."""
+    months = [_week_start(w).month for w in iso_weeks]
+    for i in range(1, len(months)):
+        if months[i] != months[i - 1]:
+            fig.add_vline(x=i - 0.5, line_dash="dot",
+                          line_color="rgba(100,100,100,0.25)", line_width=1.5)
 
 
 def kpi_stats(start_date: str, end_date: str) -> dict:
@@ -142,11 +168,13 @@ def fig_weekly_bar(start_date: str, end_date: str) -> Figure:
     df = weekly_bar_data(start_date, end_date)
     if df.empty:
         return go.Figure().add_annotation(text="No data yet", showarrow=False)
-    fig = px.bar(df, x="week", y="total",
-                 labels={"week": "Week", "total": "€ Spent"},
+    df["label"] = df["week"].apply(_week_label)
+    fig = px.bar(df, x="label", y="total",
+                 labels={"label": "Week", "total": "€ Spent"},
                  title="Weekly Spending",
                  color_discrete_sequence=["#0d9488"])
     fig.update_xaxes(type="category")
+    _add_month_separators(fig, df["week"].tolist())
     return fig
 
 
@@ -173,6 +201,50 @@ def fig_sub_expense_breakdown(start_date: str, end_date: str) -> Figure:
     return fig
 
 
+def fig_weekly_groceries_trend(start_date: str, end_date: str) -> Figure:
+    import numpy as np
+    rows = fetch_expenses(start_date, end_date)
+    if not rows:
+        return go.Figure().add_annotation(text="No data yet", showarrow=False)
+    df = pd.DataFrame(rows)
+    df = df[df["category"] == "Groceries"]
+    if df.empty:
+        return go.Figure().add_annotation(text="No grocery data in this period", showarrow=False)
+    df["sort_key"] = pd.to_datetime(df["date"]).dt.strftime("%G-W%V")
+    weekly = (
+        df.groupby("sort_key")["amount"].sum()
+        .reset_index()
+        .rename(columns={"amount": "total", "sort_key": "week"})
+        .sort_values("week")
+    )
+    weekly["label"] = weekly["week"].apply(_week_label)
+    x_idx = list(range(len(weekly)))
+    y = weekly["total"].values
+    m, b = np.polyfit(x_idx, y, 1)
+    trend = [m * xi + b for xi in x_idx]
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=weekly["label"], y=weekly["total"],
+        mode="markers",
+        name="Weekly total",
+        marker=dict(color="#0d9488", size=9),
+    ))
+    fig.add_trace(go.Scatter(
+        x=weekly["label"], y=trend,
+        mode="lines",
+        name="Trend",
+        line=dict(color="#f59e0b", dash="dash", width=2),
+    ))
+    fig.update_layout(
+        title="Weekly Grocery Spending",
+        xaxis=dict(title="Week", type="category"),
+        yaxis_title="€ Spent",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+    )
+    _add_month_separators(fig, weekly["week"].tolist())
+    return fig
+
+
 def fig_heatmap(start_date: str, end_date: str) -> Figure:
     df = heatmap_data(start_date, end_date)
     if df.empty:
@@ -183,6 +255,7 @@ def fig_heatmap(start_date: str, end_date: str) -> Figure:
     pivot = df.pivot_table(index="weekday", columns="week", values="total", aggfunc="sum")
     day_order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
     pivot = pivot.reindex([d for d in day_order if d in pivot.index])
+    pivot.columns = [_week_label(w) for w in pivot.columns]
     return px.imshow(pivot, color_continuous_scale="Teal",
                      title="Daily Spending Heatmap",
                      labels={"color": "€ Spent"})

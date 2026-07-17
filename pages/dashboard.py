@@ -114,7 +114,7 @@ layout = html.Div([
     # Budget section (collapsible)
     dbc.Row(dbc.Col([
         dbc.Button(
-            "Monthly Budgets ▼",
+            "Monthly Budgets ▶",
             id="budget-toggle-btn",
             color="link",
             className="p-0 mb-2 text-decoration-none fw-semibold",
@@ -124,7 +124,7 @@ layout = html.Div([
         dbc.Collapse(
             html.Div(id="budget-section"),
             id="budget-collapse",
-            is_open=True,
+            is_open=False,
         ),
     ], md=12), className="mb-4"),
 
@@ -149,6 +149,11 @@ layout = html.Div([
     dbc.Row([
         dbc.Col(dcc.Graph(id="chart-sub-breakdown"), md=6),
         dbc.Col(dcc.Graph(id="chart-heatmap"), md=6),
+    ], className="mb-3"),
+
+    # Charts row 4
+    dbc.Row([
+        dbc.Col(dcc.Graph(id="chart-groceries-trend"), md=8),
     ]),
 ])
 
@@ -161,6 +166,7 @@ layout = html.Div([
     Output("chart-merchants", "figure"),
     Output("chart-sub-breakdown", "figure"),
     Output("chart-heatmap", "figure"),
+    Output("chart-groceries-trend", "figure"),
     Input("period-select", "value"),
     Input("expense-deleted-store", "data"),
 )
@@ -199,6 +205,7 @@ def update_dashboard(period: str, _deleted):
         _safe(charts.fig_top_merchants, start, end),
         _safe(charts.fig_sub_expense_breakdown, start, end),
         _safe(charts.fig_heatmap, start, end),
+        _safe(charts.fig_weekly_groceries_trend, start, end),
     )
 
 
