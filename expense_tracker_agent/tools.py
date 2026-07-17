@@ -10,6 +10,7 @@ from expense_tracker_agent.db import (
     init_db,
     insert_expense,
     insert_expense_item,
+    normalize_merchant,
 )
 
 CATEGORIES = [
@@ -42,7 +43,50 @@ def add_expense(
     date: Optional[str] = None,
 ) -> str:
     """
-    Adds an expense to the tracker.
+    Adds an expense to the tracker. Checks for duplicates when a merchant is
+    provided (same date + merchant + amount). Returns a warning without saving
+    if a duplicate is found — call force_add_expense if the user confirms.
+
+    Args:
+        amount: The numerical amount of the expense.
+        description: A brief description of the expense.
+        category: The category (must be one of CATEGORIES).
+        merchant: Optional merchant or store name.
+        date: ISO date YYYY-MM-DD; defaults to today.
+
+    Returns:
+        A confirmation message including the assigned expense id, or a
+        duplicate warning if an identical expense already exists.
+    """
+    resolved_date = date or _date.today().isoformat()
+    canonical = normalize_merchant(merchant)
+    if canonical and expense_exists(resolved_date, canonical, amount):
+        return (
+            f"⚠️ Possible duplicate: a {canonical} expense of €{amount:.2f} "
+            f"already exists on {resolved_date}. Expense was NOT saved. "
+            f"If this is intentional, say 'add anyway'."
+        )
+    eid = insert_expense(
+        amount=amount,
+        category=category,
+        description=description,
+        merchant=merchant,
+        date=resolved_date,
+        source="ai_chat",
+    )
+    return f"Added expense #{eid}: {description} — €{amount:.2f} [{category}] on {resolved_date}"
+
+
+def force_add_expense(
+    amount: float,
+    description: str,
+    category: str,
+    merchant: Optional[str] = None,
+    date: Optional[str] = None,
+) -> str:
+    """
+    Adds an expense, bypassing the duplicate check. Use ONLY when the user
+    has explicitly confirmed they want to save despite a detected duplicate.
 
     Args:
         amount: The numerical amount of the expense.

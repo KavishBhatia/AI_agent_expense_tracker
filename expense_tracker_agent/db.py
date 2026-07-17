@@ -20,7 +20,7 @@ _MERCHANT_CANONICAL: dict[str, str] = {
 }
 
 
-def _normalize_merchant(name: str | None) -> str | None:
+def normalize_merchant(name: str | None) -> str | None:
     if not name:
         return name
     return _MERCHANT_CANONICAL.get(name.strip().lower(), name)
@@ -94,7 +94,7 @@ def insert_expense(
 ) -> int:
     ts = datetime.now().isoformat(timespec="seconds")
     d = date or datetime.now().date().isoformat()
-    merchant = _normalize_merchant(merchant)
+    merchant = normalize_merchant(merchant)
     with _conn() as conn:
         cur = conn.execute(
             "INSERT INTO expenses (amount, merchant, category, description, date, timestamp, source) "

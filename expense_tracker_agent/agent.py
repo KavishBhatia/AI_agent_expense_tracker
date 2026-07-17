@@ -9,6 +9,7 @@ from expense_tracker_agent.tools import (
     add_expense_item,
     calculate_total_spending,
     find_parent_expense_id,
+    force_add_expense,
     get_spending_by_category,
     import_csv_row,
     list_expense_items,
@@ -61,7 +62,13 @@ def _build_instruction(today: str) -> str:
         "- anything else → Miscellaneous\n\n"
         "If the user does not provide the amount, ask for it before calling add_expense. "
         "Never ask for the category — infer it yourself. "
-        "Never ask for merchant or date — extract them from context or omit them."
+        "Never ask for merchant or date — extract them from context or omit them.\n\n"
+        "## Duplicate detection\n"
+        "add_expense automatically checks for duplicates (same date + merchant + amount). "
+        "If it returns a ⚠️ warning, tell the user what was found and ask whether to save it anyway. "
+        "If they confirm ('add anyway', 'yes save it', 'it's different', etc.), call "
+        "force_add_expense with the same arguments. "
+        "Never call force_add_expense unless the user has explicitly confirmed."
     )
 
 
@@ -71,6 +78,7 @@ root_agent = Agent(
     instruction=_build_instruction(today=date.today().isoformat()),
     tools=[
         add_expense,
+        force_add_expense,
         add_expense_item,
         find_parent_expense_id,
         list_expense_items,
