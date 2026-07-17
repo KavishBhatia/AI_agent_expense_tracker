@@ -8,6 +8,23 @@ from typing import Optional
 
 DB_PATH = Path("expenses.db")
 
+_MERCHANT_CANONICAL: dict[str, str] = {
+    "aldi":   "Aldi",
+    "edeka":  "Edeka",
+    "lidl":   "Lidl",
+    "netto":  "Netto",
+    "dm":     "dm",
+    "müller": "Müller",
+    "muller": "Müller",
+    "rewe":   "Rewe",
+}
+
+
+def _normalize_merchant(name: str | None) -> str | None:
+    if not name:
+        return name
+    return _MERCHANT_CANONICAL.get(name.strip().lower(), name)
+
 
 @contextmanager
 def _conn():
@@ -59,6 +76,12 @@ def init_db() -> None:
         conn.execute("UPDATE expenses SET category = 'Commute' WHERE category = 'Transport'")
         conn.execute("UPDATE expense_items SET category = 'Commute' WHERE category = 'Transport'")
         conn.execute("UPDATE budgets SET category = 'Commute' WHERE category = 'Transport'")
+        # Migration: normalize known merchant names to canonical casing
+        for lower, canonical in _MERCHANT_CANONICAL.items():
+            conn.execute(
+                "UPDATE expenses SET merchant = ? WHERE lower(merchant) = ?",
+                (canonical, lower),
+            )
 
 
 def insert_expense(
@@ -71,6 +94,7 @@ def insert_expense(
 ) -> int:
     ts = datetime.now().isoformat(timespec="seconds")
     d = date or datetime.now().date().isoformat()
+    merchant = _normalize_merchant(merchant)
     with _conn() as conn:
         cur = conn.execute(
             "INSERT INTO expenses (amount, merchant, category, description, date, timestamp, source) "
