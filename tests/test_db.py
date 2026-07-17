@@ -83,6 +83,14 @@ class TestInsertExpense(BaseDbTest):
         self.assertEqual(rows[0]["merchant"], "Edeka")
         self.assertAlmostEqual(rows[0]["amount"], 5.50)
 
+    def test_normalizes_merchant_casing_and_whitespace(self):
+        insert_expense(5.50, "Groceries", "bread", merchant="ALDI")
+        insert_expense(3.25, "Personal Care", "soap", merchant=" dm ")
+
+        rows = fetch_expenses()
+
+        self.assertEqual([row["merchant"] for row in rows], ["Aldi", "dm"])
+
     def test_default_source_is_manual(self):
         insert_expense(3.0, "Food", "coffee")
         rows = fetch_expenses()
@@ -151,6 +159,10 @@ class TestExpenseExists(BaseDbTest):
     def test_returns_false_when_not_exists(self):
         self.assertFalse(expense_exists("2026-06-01", "Edeka", 10.0))
 
+    def test_normalizes_merchant_before_lookup(self):
+        insert_expense(10.0, "Groceries", "shop", merchant="Edeka", date="2026-06-01")
+        self.assertTrue(expense_exists("2026-06-01", " edeka ", 10.0))
+
 
 class TestFindParentExpense(BaseDbTest):
     def test_finds_parent_by_merchant_and_date(self):
@@ -160,6 +172,10 @@ class TestFindParentExpense(BaseDbTest):
 
     def test_returns_none_when_no_match(self):
         self.assertIsNone(find_parent_expense("Rewe", "2026-06-01"))
+
+    def test_normalizes_merchant_before_lookup(self):
+        eid = insert_expense(10.0, "Groceries", "Edeka shop", merchant="Edeka", date="2026-06-01")
+        self.assertEqual(find_parent_expense("edeka", "2026-06-01"), eid)
 
 
 class TestMigrateFromCsv(BaseDbTest):

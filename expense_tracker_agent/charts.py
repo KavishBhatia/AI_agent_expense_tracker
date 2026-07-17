@@ -25,12 +25,21 @@ def _week_label(iso_week: str) -> str:
 
 
 def _add_month_separators(fig, iso_weeks: list) -> None:
-    """Add faint dotted vlines wherever consecutive weeks cross a month boundary."""
+    """Add faint dotted vlines with month labels wherever weeks cross a month boundary."""
     months = [_week_start(w).month for w in iso_weeks]
     for i in range(1, len(months)):
         if months[i] != months[i - 1]:
+            month_name = _week_start(iso_weeks[i]).strftime("%b")
             fig.add_vline(x=i - 0.5, line_dash="dot",
                           line_color="rgba(100,100,100,0.25)", line_width=1.5)
+            fig.add_annotation(
+                x=i - 0.5, y=1, yref="paper",
+                text=month_name,
+                showarrow=False,
+                font=dict(size=10, color="rgba(100,100,100,0.6)"),
+                xanchor="left", yanchor="top",
+                bgcolor="rgba(255,255,255,0)",
+            )
 
 
 def kpi_stats(start_date: str, end_date: str) -> dict:
