@@ -20,7 +20,7 @@ _MERCHANT_CANONICAL: dict[str, str] = {
 }
 
 
-def _normalize_merchant(name: str | None) -> str | None:
+def normalize_merchant(name: str | None) -> str | None:
     if name is None:
         return None
     stripped = name.strip()
@@ -84,7 +84,7 @@ def init_db() -> None:
             "SELECT id, merchant FROM expenses WHERE merchant IS NOT NULL AND merchant != ''"
         ).fetchall()
         for r in rows:
-            normalized = _normalize_merchant(r["merchant"])
+            normalized = normalize_merchant(r["merchant"])
             if normalized != r["merchant"]:
                 conn.execute(
                     "UPDATE expenses SET merchant = ? WHERE id = ?",
@@ -102,7 +102,7 @@ def insert_expense(
 ) -> int:
     ts = datetime.now().isoformat(timespec="seconds")
     d = date or datetime.now().date().isoformat()
-    merchant = _normalize_merchant(merchant)
+    merchant = normalize_merchant(merchant)
     with _conn() as conn:
         cur = conn.execute(
             "INSERT INTO expenses (amount, merchant, category, description, date, timestamp, source) "
@@ -167,7 +167,7 @@ def fetch_expense_items_by_parent_ids(parent_ids: list[int]) -> dict[int, list[d
 
 
 def expense_exists(date: str, merchant: str, amount: float) -> bool:
-    merchant = _normalize_merchant(merchant)
+    merchant = normalize_merchant(merchant)
     with _conn() as conn:
         row = conn.execute(
             "SELECT 1 FROM expenses WHERE date=? AND merchant=? AND amount=?",
@@ -177,7 +177,7 @@ def expense_exists(date: str, merchant: str, amount: float) -> bool:
 
 
 def find_parent_expense(merchant: str, date: str) -> Optional[int]:
-    merchant = _normalize_merchant(merchant)
+    merchant = normalize_merchant(merchant)
     with _conn() as conn:
         row = conn.execute(
             "SELECT id FROM expenses WHERE merchant=? AND date=? ORDER BY id DESC LIMIT 1",
