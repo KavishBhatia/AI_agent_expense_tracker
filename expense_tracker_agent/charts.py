@@ -1,10 +1,22 @@
 # charts.py
+from datetime import datetime as _dt, timedelta as _td
+
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.graph_objects import Figure
 
 from expense_tracker_agent.db import fetch_expense_items, fetch_expenses
+
+
+def _week_label(iso_week: str) -> str:
+    """Convert '2026-W03' to '12.01 Mon – 18.01 Sun'."""
+    monday = _dt.strptime(iso_week + "-1", "%G-W%V-%u").date()
+    sunday = monday + _td(days=6)
+    return (
+        f"{monday.day}.{monday.strftime('%m')} {monday.strftime('%a')}"
+        f" – {sunday.day}.{sunday.strftime('%m')} {sunday.strftime('%a')}"
+    )
 
 
 def kpi_stats(start_date: str, end_date: str) -> dict:
@@ -142,8 +154,9 @@ def fig_weekly_bar(start_date: str, end_date: str) -> Figure:
     df = weekly_bar_data(start_date, end_date)
     if df.empty:
         return go.Figure().add_annotation(text="No data yet", showarrow=False)
-    fig = px.bar(df, x="week", y="total",
-                 labels={"week": "Week", "total": "€ Spent"},
+    df["label"] = df["week"].apply(_week_label)
+    fig = px.bar(df, x="label", y="total",
+                 labels={"label": "Week", "total": "€ Spent"},
                  title="Weekly Spending",
                  color_discrete_sequence=["#0d9488"])
     fig.update_xaxes(type="category")
@@ -182,26 +195,27 @@ def fig_weekly_groceries_trend(start_date: str, end_date: str) -> Figure:
     df = df[df["category"] == "Groceries"]
     if df.empty:
         return go.Figure().add_annotation(text="No grocery data in this period", showarrow=False)
-    df["week"] = pd.to_datetime(df["date"]).dt.strftime("%G-W%V")
+    df["sort_key"] = pd.to_datetime(df["date"]).dt.strftime("%G-W%V")
     weekly = (
-        df.groupby("week")["amount"].sum()
+        df.groupby("sort_key")["amount"].sum()
         .reset_index()
-        .rename(columns={"amount": "total"})
+        .rename(columns={"amount": "total", "sort_key": "week"})
         .sort_values("week")
     )
+    weekly["label"] = weekly["week"].apply(_week_label)
     x_idx = list(range(len(weekly)))
     y = weekly["total"].values
     m, b = np.polyfit(x_idx, y, 1)
     trend = [m * xi + b for xi in x_idx]
     fig = go.Figure()
     fig.add_trace(go.Scatter(
-        x=weekly["week"], y=weekly["total"],
+        x=weekly["label"], y=weekly["total"],
         mode="markers",
         name="Weekly total",
         marker=dict(color="#0d9488", size=9),
     ))
     fig.add_trace(go.Scatter(
-        x=weekly["week"], y=trend,
+        x=weekly["label"], y=trend,
         mode="lines",
         name="Trend",
         line=dict(color="#f59e0b", dash="dash", width=2),
