@@ -167,6 +167,7 @@ def fetch_expense_items_by_parent_ids(parent_ids: list[int]) -> dict[int, list[d
 
 
 def expense_exists(date: str, merchant: str, amount: float) -> bool:
+    merchant = _normalize_merchant(merchant)
     with _conn() as conn:
         row = conn.execute(
             "SELECT 1 FROM expenses WHERE date=? AND merchant=? AND amount=?",
@@ -176,6 +177,7 @@ def expense_exists(date: str, merchant: str, amount: float) -> bool:
 
 
 def find_parent_expense(merchant: str, date: str) -> Optional[int]:
+    merchant = _normalize_merchant(merchant)
     with _conn() as conn:
         row = conn.execute(
             "SELECT id FROM expenses WHERE merchant=? AND date=? ORDER BY id DESC LIMIT 1",
