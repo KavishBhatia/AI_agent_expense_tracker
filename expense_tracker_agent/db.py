@@ -21,9 +21,12 @@ _MERCHANT_CANONICAL: dict[str, str] = {
 
 
 def _normalize_merchant(name: str | None) -> str | None:
-    if not name:
-        return name
-    return _MERCHANT_CANONICAL.get(name.strip().lower(), name)
+    if name is None:
+        return None
+    stripped = name.strip()
+    if not stripped:
+        return None
+    return _MERCHANT_CANONICAL.get(stripped.lower(), stripped)
 
 
 @contextmanager
