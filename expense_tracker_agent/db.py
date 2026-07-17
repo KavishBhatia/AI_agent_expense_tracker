@@ -80,11 +80,16 @@ def init_db() -> None:
         conn.execute("UPDATE expense_items SET category = 'Commute' WHERE category = 'Transport'")
         conn.execute("UPDATE budgets SET category = 'Commute' WHERE category = 'Transport'")
         # Migration: normalize known merchant names to canonical casing
-        for lower, canonical in _MERCHANT_CANONICAL.items():
-            conn.execute(
-                "UPDATE expenses SET merchant = ? WHERE lower(merchant) = ?",
-                (canonical, lower),
-            )
+        rows = conn.execute(
+            "SELECT id, merchant FROM expenses WHERE merchant IS NOT NULL AND merchant != ''"
+        ).fetchall()
+        for r in rows:
+            normalized = _normalize_merchant(r["merchant"])
+            if normalized != r["merchant"]:
+                conn.execute(
+                    "UPDATE expenses SET merchant = ? WHERE id = ?",
+                    (normalized, r["id"]),
+                )
 
 
 def insert_expense(
