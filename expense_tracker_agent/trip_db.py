@@ -121,6 +121,17 @@ def insert_trip_expense(
         return cur.lastrowid
 
 
+def trip_expense_exists(trip_id: int, date: str, merchant: str | None, amount: float) -> bool:
+    if not merchant:
+        return False
+    with _conn() as con:
+        row = con.execute(
+            "SELECT 1 FROM trip_expenses WHERE trip_id=? AND date=? AND merchant=? AND amount=? LIMIT 1",
+            (trip_id, date, merchant, amount),
+        ).fetchone()
+    return row is not None
+
+
 def delete_trip(trip_id: int) -> None:
     with _conn() as con:
         con.execute("PRAGMA foreign_keys = ON")

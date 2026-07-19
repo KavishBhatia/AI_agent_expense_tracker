@@ -7,7 +7,7 @@ import expense_tracker_agent.trip_db as trip_db_module
 from expense_tracker_agent.trip_db import (
     init_trip_db, create_trip, fetch_trips, fetch_trip,
     fetch_trip_expenses, insert_trip_expense, delete_trip, delete_trip_expense,
-    fetch_trip_expense, update_trip_expense,
+    fetch_trip_expense, update_trip_expense, trip_expense_exists,
 )
 
 def _temp_db() -> Path:
@@ -163,3 +163,35 @@ class TestUpdateTripExpense(BaseTripDbTest):
         row = fetch_trip_expense(eid)
         self.assertIsNone(row["merchant"])
         self.assertIsNone(row["description"])
+
+
+class TestTripExpenseExists(BaseTripDbTest):
+    def test_returns_true_for_exact_match(self):
+        tid = create_trip("Porto")
+        insert_trip_expense(tid, 12.0, "Francesinha", "Food & Dining", None, "2026-05-01")
+        self.assertTrue(trip_expense_exists(tid, "2026-05-01", "Francesinha", 12.0))
+
+    def test_returns_false_when_no_match(self):
+        tid = create_trip("Faro")
+        self.assertFalse(trip_expense_exists(tid, "2026-05-01", "Cafe", 5.0))
+
+    def test_returns_false_when_no_merchant(self):
+        tid = create_trip("Coimbra")
+        insert_trip_expense(tid, 10.0, None, "Miscellaneous", None, "2026-05-01")
+        self.assertFalse(trip_expense_exists(tid, "2026-05-01", None, 10.0))
+
+    def test_returns_false_for_different_amount(self):
+        tid = create_trip("Braga")
+        insert_trip_expense(tid, 20.0, "Shop", "Groceries", None, "2026-06-01")
+        self.assertFalse(trip_expense_exists(tid, "2026-06-01", "Shop", 25.0))
+
+    def test_returns_false_for_different_date(self):
+        tid = create_trip("Evora")
+        insert_trip_expense(tid, 15.0, "Adega", "Food & Dining", None, "2026-06-01")
+        self.assertFalse(trip_expense_exists(tid, "2026-06-02", "Adega", 15.0))
+
+    def test_does_not_cross_trips(self):
+        tid1 = create_trip("Trip A")
+        tid2 = create_trip("Trip B")
+        insert_trip_expense(tid1, 10.0, "Market", "Groceries", None, "2026-07-01")
+        self.assertFalse(trip_expense_exists(tid2, "2026-07-01", "Market", 10.0))
