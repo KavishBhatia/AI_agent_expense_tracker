@@ -384,6 +384,15 @@ def save_expense(n_clicks, amount, merchant, category, description, date_val, tr
     content, new_tid = render_trip(search)
     return dbc.Alert("Expense saved.", color="success", dismissable=True, duration=3000), content, new_tid, None, _FORCE_BTN_HIDE
 
+@callback(
+    Output("te-feedback", "children", allow_duplicate=True),
+    Output("te-pending-force-data", "data", allow_duplicate=True),
+    Output("te-force-save-btn", "style", allow_duplicate=True),
+    Input("trip-location", "search"),
+    prevent_initial_call=True,
+)
+def reset_force_save_state(_search):
+    return "", None, _FORCE_BTN_HIDE
 
 @callback(
     Output("te-feedback", "children", allow_duplicate=True),
