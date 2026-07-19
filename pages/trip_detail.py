@@ -14,7 +14,7 @@ from expense_tracker_agent.categoriser import classify_expenses
 from expense_tracker_agent.tools import CATEGORIES
 from expense_tracker_agent.trip_db import (
     delete_trip_expense, fetch_trip, fetch_trip_expense, fetch_trip_expenses,
-    insert_trip_expense, update_trip_expense,
+    insert_trip_expense, trip_expense_exists, update_trip_expense,
 )
 
 dash.register_page(__name__, path="/trip", name="Trip Detail")
@@ -58,6 +58,7 @@ def layout(**kwargs):
         dcc.Store(id="trip-id-store"),
         dcc.Store(id="pending-delete-trip-expense-id"),
         dcc.Store(id="editing-trip-expense-id"),
+        dcc.Store(id="te-pending-force-data"),
         html.Div(id="te-feedback"),
         dcc.Loading(
             html.Div(id="trip-csv-feedback"),
@@ -264,6 +265,9 @@ def render_trip(search):
                 ], className="mb-2"),
                 dbc.Button("Save Expense", id="te-save-btn", size="sm", n_clicks=0,
                            style={"backgroundColor": "#e11d48", "borderColor": "#e11d48", "color": "#fff"}),
+                dbc.Button("Save anyway", id="te-force-save-btn", size="sm", n_clicks=0,
+                           color="warning", className="ms-2",
+                           style={"display": "none"}),
             ])),
             id="add-expense-collapse",
             is_open=False,
@@ -323,10 +327,16 @@ def toggle_import_csv(n, is_open):
     return not is_open
 
 
+_FORCE_BTN_SHOW = {"display": "inline-block"}
+_FORCE_BTN_HIDE = {"display": "none"}
+
+
 @callback(
     Output("te-feedback", "children"),
     Output("trip-detail-content", "children", allow_duplicate=True),
     Output("trip-id-store", "data", allow_duplicate=True),
+    Output("te-pending-force-data", "data"),
+    Output("te-force-save-btn", "style"),
     Input("te-save-btn", "n_clicks"),
     State("te-amount", "value"),
     State("te-merchant", "value"),
@@ -338,25 +348,70 @@ def toggle_import_csv(n, is_open):
     prevent_initial_call=True,
 )
 def save_expense(n_clicks, amount, merchant, category, description, date_val, trip_id, search):
+    _no = dash.no_update
     if not n_clicks:
-        return dash.no_update, dash.no_update, dash.no_update
+        return _no, _no, _no, _no, _no
     if not amount or float(amount) <= 0:
-        return dbc.Alert("Amount must be greater than 0.", color="danger", dismissable=True), dash.no_update, dash.no_update
+        return dbc.Alert("Amount must be greater than 0.", color="danger", dismissable=True), _no, _no, None, _FORCE_BTN_HIDE
     if not category:
-        return dbc.Alert("Category is required.", color="danger", dismissable=True), dash.no_update, dash.no_update
+        return dbc.Alert("Category is required.", color="danger", dismissable=True), _no, _no, None, _FORCE_BTN_HIDE
     if not trip_id:
-        return dbc.Alert("Trip not found.", color="danger", dismissable=True), dash.no_update, dash.no_update
+        return dbc.Alert("Trip not found.", color="danger", dismissable=True), _no, _no, None, _FORCE_BTN_HIDE
+
+    canonical_merchant = merchant.strip() if merchant and merchant.strip() else None
+    canonical_date = date_val[:10] if date_val else _date.today().isoformat()
+
+    if trip_expense_exists(trip_id, canonical_date, canonical_merchant, float(amount)):
+        pending = {
+            "trip_id": trip_id, "amount": float(amount),
+            "merchant": canonical_merchant, "category": category,
+            "description": description.strip() if description and description.strip() else None,
+            "date": canonical_date,
+        }
+        warning = dbc.Alert(
+            [f"⚠️ A {canonical_merchant or 'matching'} expense of €{float(amount):.2f} "
+             f"on {canonical_date} already exists. Not saved — click 'Save anyway' to override."],
+            color="warning", dismissable=True,
+        )
+        return warning, _no, _no, pending, _FORCE_BTN_SHOW
 
     insert_trip_expense(
         trip_id=trip_id,
         amount=float(amount),
-        merchant=merchant.strip() if merchant and merchant.strip() else None,
+        merchant=canonical_merchant,
         category=category,
         description=description.strip() if description and description.strip() else None,
-        date=date_val[:10] if date_val else _date.today().isoformat(),
+        date=canonical_date,
     )
     content, new_tid = render_trip(search)
-    return dbc.Alert("Expense saved.", color="success", dismissable=True, duration=3000), content, new_tid
+    return dbc.Alert("Expense saved.", color="success", dismissable=True, duration=3000), content, new_tid, None, _FORCE_BTN_HIDE
+
+
+@callback(
+    Output("te-feedback", "children", allow_duplicate=True),
+    Output("trip-detail-content", "children", allow_duplicate=True),
+    Output("trip-id-store", "data", allow_duplicate=True),
+    Output("te-pending-force-data", "data", allow_duplicate=True),
+    Output("te-force-save-btn", "style", allow_duplicate=True),
+    Input("te-force-save-btn", "n_clicks"),
+    State("te-pending-force-data", "data"),
+    State("trip-location", "search"),
+    prevent_initial_call=True,
+)
+def force_save_expense(n_clicks, pending, search):
+    _no = dash.no_update
+    if not n_clicks or not pending:
+        return _no, _no, _no, _no, _no
+    insert_trip_expense(
+        trip_id=pending["trip_id"],
+        amount=pending["amount"],
+        merchant=pending["merchant"],
+        category=pending["category"],
+        description=pending["description"],
+        date=pending["date"],
+    )
+    content, new_tid = render_trip(search)
+    return dbc.Alert("Expense saved.", color="success", dismissable=True, duration=3000), content, new_tid, None, _FORCE_BTN_HIDE
 
 
 @callback(
