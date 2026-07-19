@@ -179,12 +179,10 @@ def render_trip(search):
             html.Td([
                 dbc.Button("✎", id={"type": "edit-trip-expense", "index": e["id"]},
                            size="sm", color="link", title="Edit expense",
-                           style={"color": "#6c757d", "padding": "0 4px", "lineHeight": "1"},
-                           **{"aria-label": "Edit expense"}),
+                           style={"color": "#6c757d", "padding": "0 4px", "lineHeight": "1"}),
                 dbc.Button("×", id={"type": "del-trip-expense", "index": e["id"]},
                            size="sm", color="link", title="Delete expense",
-                           style={"color": "#dc3545", "padding": "0 4px", "lineHeight": "1"},
-                           **{"aria-label": "Delete expense"}),
+                           style={"color": "#dc3545", "padding": "0 4px", "lineHeight": "1"}),
             ], className="text-center text-nowrap"),
         ])
         for e in expenses
