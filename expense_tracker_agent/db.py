@@ -9,14 +9,17 @@ from typing import Optional
 DB_PATH = Path("expenses.db")
 
 _MERCHANT_CANONICAL: dict[str, str] = {
-    "aldi":   "Aldi",
-    "edeka":  "Edeka",
-    "lidl":   "Lidl",
-    "netto":  "Netto",
-    "dm":     "dm",
-    "müller": "Müller",
-    "muller": "Müller",
-    "rewe":   "Rewe",
+    "aldi":      "Aldi",
+    "edeka":     "Edeka",
+    "lidl":      "Lidl",
+    "netto":     "Netto",
+    "dm":        "dm",
+    "müller":    "Müller",
+    "muller":    "Müller",
+    "rewe":      "Rewe",
+    "action":    "Action",
+    "tedi":      "Tedi",
+    "woolworth": "Woolworth",
 }
 
 
