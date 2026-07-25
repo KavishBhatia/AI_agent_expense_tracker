@@ -93,6 +93,22 @@ def init_db() -> None:
                     "UPDATE expenses SET merchant = ? WHERE id = ?",
                     (normalized, r["id"]),
                 )
+        # Migration: fix entries where the agent stored "[Store] for [item]" as the
+        # full description with no merchant, because these stores weren't yet recognised.
+        for lower, canonical in [("action", "Action"), ("tedi", "Tedi"), ("woolworth", "Woolworth")]:
+            prefix = lower + " for "
+            rows = conn.execute(
+                "SELECT id, description FROM expenses "
+                "WHERE merchant IS NULL AND lower(description) LIKE ? AND deleted = 0",
+                (prefix + "%",),
+            ).fetchall()
+            for r in rows:
+                item = r["description"][len(prefix):].strip()
+                if item:
+                    conn.execute(
+                        "UPDATE expenses SET merchant = ?, description = ? WHERE id = ?",
+                        (canonical, item, r["id"]),
+                    )
 
 
 def insert_expense(
