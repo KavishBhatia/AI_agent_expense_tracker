@@ -55,6 +55,11 @@ class TestAgentInstruction(unittest.TestCase):
     def test_instruction_mentions_date_resolution(self):
         self.assertIn("yesterday", self.instruction.lower())
 
+    def test_instruction_includes_new_merchants_and_at_store_pattern(self):
+        for merchant in ("Action", "Tedi", "Woolworth"):
+            self.assertIn(merchant, self.instruction)
+        self.assertIn("at Action for socks", self.instruction)
+
     def test_root_agent_instruction_contains_todays_date(self):
         today = date.today().isoformat()
         self.assertIn(today, root_agent.instruction)
