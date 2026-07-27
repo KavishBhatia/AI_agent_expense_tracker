@@ -86,10 +86,16 @@ class TestInsertExpense(BaseDbTest):
     def test_normalizes_merchant_casing_and_whitespace(self):
         insert_expense(5.50, "Groceries", "bread", merchant="ALDI")
         insert_expense(3.25, "Personal Care", "soap", merchant=" dm ")
+        insert_expense(2.00, "Shopping", "socks", merchant="action")
+        insert_expense(4.00, "Shopping", "toy", merchant=" TEDI ")
+        insert_expense(6.00, "Shopping", "shirt", merchant="wOoLwOrTh")
 
         rows = fetch_expenses()
 
-        self.assertEqual([row["merchant"] for row in rows], ["Aldi", "dm"])
+        self.assertEqual(
+            [row["merchant"] for row in rows],
+            ["Aldi", "dm", "Action", "Tedi", "Woolworth"],
+        )
 
     def test_default_source_is_manual(self):
         insert_expense(3.0, "Food", "coffee")
