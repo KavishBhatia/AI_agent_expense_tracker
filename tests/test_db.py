@@ -10,6 +10,7 @@ from unittest.mock import patch
 import expense_tracker_agent.db as db_module
 from expense_tracker_agent.db import (
     expense_exists,
+    fetch_expense,
     fetch_expense_items,
     fetch_expense_items_by_parent_ids,
     fetch_expenses,
@@ -20,6 +21,7 @@ from expense_tracker_agent.db import (
     insert_expense_item,
     migrate_from_csv,
     set_budget,
+    update_expense,
 )
 
 
@@ -70,6 +72,45 @@ class TestInitDb(BaseDbTest):
         self.assertEqual(tables, {"expenses", "expense_items", "budgets"})
 
 
+class TestAmazonMigration(BaseDbTest):
+    def _insert_raw(self, description, merchant=None, deleted=0):
+        conn = sqlite3.connect(self.tmp_db)
+        conn.execute(
+            "INSERT INTO expenses (amount, merchant, category, description, date, timestamp, source, deleted) "
+            "VALUES (?, ?, ?, ?, ?, ?, 'manual', ?)",
+            (20.0, merchant, "Electronics", description, "2026-03-01", "2026-03-01T10:00:00", deleted),
+        )
+        conn.commit()
+        conn.close()
+
+    def test_splits_amazon_for_item_pattern(self):
+        self._insert_raw("amazon for phone case")
+        init_db()  # re-run migration against the seeded row
+        row = fetch_expenses()[0]
+        self.assertEqual(row["merchant"], "Amazon")
+        self.assertEqual(row["description"], "phone case")
+
+    def test_fallback_sets_merchant_without_touching_description(self):
+        self._insert_raw("bought a cable on amazon")
+        init_db()
+        row = fetch_expenses()[0]
+        self.assertEqual(row["merchant"], "Amazon")
+        self.assertEqual(row["description"], "bought a cable on amazon")
+
+    def test_does_not_touch_rows_with_existing_merchant(self):
+        self._insert_raw("amazon for headphones", merchant="SomeOtherStore")
+        init_db()
+        row = fetch_expenses()[0]
+        self.assertEqual(row["merchant"], "SomeOtherStore")
+        self.assertEqual(row["description"], "amazon for headphones")
+
+    def test_does_not_match_substring_word(self):
+        self._insert_raw("amazonite crystal gift")
+        init_db()
+        row = fetch_expenses()[0]
+        self.assertIsNone(row["merchant"])
+
+
 class TestInsertExpense(BaseDbTest):
     def test_returns_integer_id(self):
         eid = insert_expense(10.0, "Food", "lunch")
@@ -89,12 +130,13 @@ class TestInsertExpense(BaseDbTest):
         insert_expense(2.00, "Shopping", "socks", merchant="action")
         insert_expense(4.00, "Shopping", "toy", merchant=" TEDI ")
         insert_expense(6.00, "Shopping", "shirt", merchant="wOoLwOrTh")
+        insert_expense(20.00, "Electronics", "cable", merchant="AMAZON")
 
         rows = fetch_expenses()
 
         self.assertEqual(
             [row["merchant"] for row in rows],
-            ["Aldi", "dm", "Action", "Tedi", "Woolworth"],
+            ["Aldi", "dm", "Action", "Tedi", "Woolworth", "Amazon"],
         )
 
     def test_default_source_is_manual(self):
@@ -168,6 +210,44 @@ class TestExpenseExists(BaseDbTest):
     def test_normalizes_merchant_before_lookup(self):
         insert_expense(10.0, "Groceries", "shop", merchant="Edeka", date="2026-06-01")
         self.assertTrue(expense_exists("2026-06-01", " edeka ", 10.0))
+
+
+class TestFetchExpense(BaseDbTest):
+    def test_fetch_returns_correct_row(self):
+        eid = insert_expense(12.5, "Groceries", "shop", merchant="Edeka", date="2026-06-01")
+        row = fetch_expense(eid)
+        self.assertIsNotNone(row)
+        self.assertEqual(row["id"], eid)
+        self.assertAlmostEqual(row["amount"], 12.5)
+        self.assertEqual(row["merchant"], "Edeka")
+        self.assertEqual(row["description"], "shop")
+
+    def test_fetch_returns_none_for_missing(self):
+        self.assertIsNone(fetch_expense(9999))
+
+
+class TestUpdateExpense(BaseDbTest):
+    def test_update_changes_all_fields(self):
+        eid = insert_expense(10.0, "Commute", "old note", merchant="OldMerchant", date="2026-01-01")
+        update_expense(eid, 25.0, "NewMerchant", "Food & Dining", "new note", "2026-02-01")
+        row = fetch_expense(eid)
+        self.assertAlmostEqual(row["amount"], 25.0)
+        self.assertEqual(row["merchant"], "NewMerchant")
+        self.assertEqual(row["category"], "Food & Dining")
+        self.assertEqual(row["description"], "new note")
+        self.assertEqual(row["date"], "2026-02-01")
+
+    def test_update_normalizes_merchant_casing(self):
+        eid = insert_expense(10.0, "Groceries", "shop", date="2026-01-01")
+        update_expense(eid, 10.0, "aldi", "Groceries", "shop", "2026-01-01")
+        row = fetch_expense(eid)
+        self.assertEqual(row["merchant"], "Aldi")
+
+    def test_update_merchant_none_clears_it(self):
+        eid = insert_expense(10.0, "Groceries", "shop", merchant="Edeka", date="2026-01-01")
+        update_expense(eid, 10.0, None, "Groceries", "shop", "2026-01-01")
+        row = fetch_expense(eid)
+        self.assertIsNone(row["merchant"])
 
 
 class TestFindParentExpense(BaseDbTest):

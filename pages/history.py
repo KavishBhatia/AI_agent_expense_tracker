@@ -8,7 +8,7 @@ import dash
 import dash_bootstrap_components as dbc
 from dash import ALL, Input, Output, State, callback, dcc, html
 
-from expense_tracker_agent.db import fetch_expenses, update_expense_category
+from expense_tracker_agent.db import fetch_expense, fetch_expenses, update_expense, update_expense_category
 from expense_tracker_agent.tools import CATEGORIES
 
 dash.register_page(__name__, path="/history", name="History")
@@ -103,10 +103,52 @@ def _days_ago(iso: str) -> str:
 
 layout = html.Div([
     dcc.Store(id="history-cat-updated-store"),
+    dcc.Store(id="history-expense-updated-store"),
     dcc.Store(id="history-page-num", data=1),
+    dcc.Store(id="editing-expense-id"),
     html.H5("History", className="mb-1"),
     html.P("Browse past transactions and track spending by category.",
            className="text-muted mb-4"),
+
+    dbc.Modal([
+        dbc.ModalHeader(dbc.ModalTitle("Edit Expense")),
+        dbc.ModalBody([
+            dbc.Row([
+                dbc.Col([
+                    dbc.Label("Amount (€)", className="small"),
+                    dbc.Input(id="edit-e-amount", type="number", min=0, step=0.01),
+                ], md=3),
+                dbc.Col([
+                    dbc.Label("Merchant", className="small"),
+                    dbc.Input(id="edit-e-merchant", type="text", placeholder="Optional"),
+                ], md=4),
+                dbc.Col([
+                    dbc.Label("Category", className="small"),
+                    dbc.Select(id="edit-e-category",
+                               options=[{"label": c, "value": c} for c in CATEGORIES]),
+                ], md=5),
+            ], className="mb-2 g-2"),
+            dbc.Row([
+                dbc.Col([
+                    dbc.Label("Description", className="small"),
+                    dbc.Input(id="edit-e-description", type="text"),
+                ], md=8),
+                dbc.Col([
+                    dbc.Label("Date", className="small"),
+                    dcc.DatePickerSingle(id="edit-e-date",
+                                         display_format="DD MMM YYYY",
+                                         style={"width": "100%"}),
+                ], md=4),
+            ], className="g-2"),
+            html.Div(id="edit-e-feedback", className="mt-2"),
+        ]),
+        dbc.ModalFooter([
+            dbc.Button("Cancel", id="edit-e-cancel", color="secondary", n_clicks=0),
+            dbc.Button("Save", id="edit-e-save", n_clicks=0,
+                       style={"backgroundColor": "#0d9488", "borderColor": "#0d9488",
+                              "color": "#fff"}),
+        ]),
+    ], id="edit-expense-modal", is_open=False, size="lg"),
 
     # ── Category insights ──────────────────────────────────────────────────
     dbc.Card(dbc.CardBody([
@@ -169,8 +211,9 @@ layout = html.Div([
     Input("history-filter-cat", "value"),
     Input("expense-deleted-store", "data"),
     Input("history-cat-updated-store", "data"),
+    Input("history-expense-updated-store", "data"),
 )
-def update_stat_cards(category: str, _deleted, _cat_updated):
+def update_stat_cards(category: str, _deleted, _cat_updated, _expense_updated):
     """Update the three stat cards when the transaction browser category changes."""
     if not category:
         return html.P("Select a specific category below (not \"All Categories\") to see averages.", className="text-muted small")
@@ -212,9 +255,10 @@ def _parse_page_info(page_info: str | None) -> tuple[int, int]:
     Input("history-search", "value"),
     Input("expense-deleted-store", "data"),
     Input("history-cat-updated-store", "data"),
+    Input("history-expense-updated-store", "data"),
     Input("history-page-num", "data"),
 )
-def update_table(category: str, keyword: str, _deleted, _cat_updated, page_num):
+def update_table(category: str, keyword: str, _deleted, _cat_updated, _expense_updated, page_num):
     """Filter and render the transaction table with pagination."""
     rows = fetch_expenses()
     kw = (keyword or "").strip().lower()
@@ -263,12 +307,14 @@ def update_table(category: str, keyword: str, _deleted, _cat_updated, page_num):
                     ),
                     html.Td(f"€{r['amount']:.2f}", className="fw-semibold text-end"),
                     html.Td(r["description"], className="text-muted small"),
-                    html.Td(
+                    html.Td([
+                        dbc.Button("✎", id={"type": "edit-expense", "index": r["id"]},
+                                   size="sm", color="link", title="Edit expense",
+                                   style={"color": "#6c757d", "padding": "0 4px", "lineHeight": "1"}),
                         dbc.Button("×", id={"type": "del-expense", "index": r["id"]},
-                                   size="sm", color="link",
+                                   size="sm", color="link", title="Delete expense",
                                    style={"color": "#dc3545", "padding": "0 4px", "lineHeight": "1"}),
-                        className="text-center",
-                    ),
+                    ], className="text-center text-nowrap"),
                 ])
                 for r in page_rows
             ]),
@@ -323,6 +369,93 @@ def update_category_inline(values):
             expense_id = json.loads(trigger["prop_id"].split(".")[0])["index"]
             update_expense_category(expense_id, trigger["value"])
     return ctx.triggered_id
+
+
+@callback(
+    Output("editing-expense-id", "data"),
+    Output("edit-expense-modal", "is_open"),
+    Output("edit-e-amount", "value"),
+    Output("edit-e-merchant", "value"),
+    Output("edit-e-category", "value"),
+    Output("edit-e-description", "value"),
+    Output("edit-e-date", "date"),
+    Input({"type": "edit-expense", "index": ALL}, "n_clicks"),
+    prevent_initial_call=True,
+)
+def open_edit_expense_modal(n_clicks_list):
+    """Pre-fill and open the edit modal for the clicked row."""
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return (dash.no_update,) * 7
+    for trigger in ctx.triggered:
+        if trigger["value"]:
+            expense_id = json.loads(trigger["prop_id"].split(".")[0])["index"]
+            expense = fetch_expense(expense_id)
+            if not expense:
+                return (dash.no_update,) * 7
+            return (
+                expense_id,
+                True,
+                expense["amount"],
+                expense["merchant"],
+                expense["category"],
+                expense["description"],
+                expense["date"],
+            )
+    return (dash.no_update,) * 7
+
+
+@callback(
+    Output("edit-expense-modal", "is_open", allow_duplicate=True),
+    Output("history-expense-updated-store", "data"),
+    Output("edit-e-feedback", "children"),
+    Input("edit-e-save", "n_clicks"),
+    Input("edit-e-cancel", "n_clicks"),
+    State("editing-expense-id", "data"),
+    State("edit-e-amount", "value"),
+    State("edit-e-merchant", "value"),
+    State("edit-e-category", "value"),
+    State("edit-e-description", "value"),
+    State("edit-e-date", "date"),
+    prevent_initial_call=True,
+)
+def save_edit_expense(save_clicks, cancel_clicks, expense_id,
+                      amount, merchant, category, description, date_val):
+    """Validate and persist an edited expense."""
+    ctx = dash.callback_context
+    if ctx.triggered_id == "edit-e-cancel":
+        return False, dash.no_update, ""
+    if not save_clicks or not expense_id:
+        return dash.no_update, dash.no_update, dash.no_update
+    if not amount or float(amount) <= 0:
+        return (
+            True, dash.no_update,
+            dbc.Alert("Amount must be greater than 0.", color="danger", className="py-1 small"),
+        )
+    if not category:
+        return (
+            True, dash.no_update,
+            dbc.Alert("Category is required.", color="danger", className="py-1 small"),
+        )
+    if not description or not description.strip():
+        return (
+            True, dash.no_update,
+            dbc.Alert("Description is required.", color="danger", className="py-1 small"),
+        )
+    if not date_val:
+        return (
+            True, dash.no_update,
+            dbc.Alert("Date is required.", color="danger", className="py-1 small"),
+        )
+    update_expense(
+        expense_id,
+        float(amount),
+        merchant or None,
+        category,
+        description.strip(),
+        date_val[:10],
+    )
+    return False, expense_id, ""
 
 
 @callback(

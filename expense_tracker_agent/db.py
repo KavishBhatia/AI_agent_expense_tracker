@@ -1,5 +1,6 @@
 # expense_tracker_agent/db.py
 import csv as _csv
+import re as _re
 import sqlite3
 from contextlib import contextmanager
 from datetime import datetime
@@ -20,6 +21,7 @@ _MERCHANT_CANONICAL: dict[str, str] = {
     "action":    "Action",
     "tedi":      "Tedi",
     "woolworth": "Woolworth",
+    "amazon":    "Amazon",
 }
 
 
@@ -95,7 +97,7 @@ def init_db() -> None:
                 )
         # Migration: fix entries where the agent stored "[Store] for [item]" as the
         # full description with no merchant, because these stores weren't yet recognised.
-        for lower, canonical in [("action", "Action"), ("tedi", "Tedi"), ("woolworth", "Woolworth")]:
+        for lower, canonical in [("action", "Action"), ("tedi", "Tedi"), ("woolworth", "Woolworth"), ("amazon", "Amazon")]:
             prefix = lower + " for "
             rows = conn.execute(
                 "SELECT id, description FROM expenses "
@@ -109,6 +111,17 @@ def init_db() -> None:
                         "UPDATE expenses SET merchant = ?, description = ? WHERE id = ?",
                         (canonical, item, r["id"]),
                     )
+        # Migration: fall back to setting merchant='Amazon' for older rows that mention
+        # amazon in the description but don't match the strict "amazon for [item]" shape.
+        rows = conn.execute(
+            "SELECT id, description FROM expenses WHERE merchant IS NULL AND deleted = 0"
+        ).fetchall()
+        for r in rows:
+            if _re.search(r"\bamazon\b", r["description"], _re.IGNORECASE):
+                conn.execute(
+                    "UPDATE expenses SET merchant = ? WHERE id = ?",
+                    ("Amazon", r["id"]),
+                )
 
 
 def insert_expense(
@@ -220,6 +233,30 @@ def update_expense_category(expense_id: int, category: str) -> None:
         conn.execute(
             "UPDATE expenses SET category = ? WHERE id = ?",
             (category, expense_id),
+        )
+
+
+def fetch_expense(expense_id: int) -> Optional[dict]:
+    with _conn() as conn:
+        row = conn.execute(
+            "SELECT * FROM expenses WHERE id = ?", (expense_id,)
+        ).fetchone()
+    return dict(row) if row else None
+
+
+def update_expense(
+    expense_id: int,
+    amount: float,
+    merchant: Optional[str],
+    category: str,
+    description: str,
+    date: str,
+) -> None:
+    merchant = normalize_merchant(merchant)
+    with _conn() as conn:
+        conn.execute(
+            "UPDATE expenses SET amount=?, merchant=?, category=?, description=?, date=? WHERE id=?",
+            (amount, merchant, category, description, date, expense_id),
         )
 
 
