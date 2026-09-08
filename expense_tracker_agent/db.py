@@ -22,6 +22,8 @@ _MERCHANT_CANONICAL: dict[str, str] = {
     "tedi":      "Tedi",
     "woolworth": "Woolworth",
     "amazon":    "Amazon",
+    "rossmann":  "Rossmann",
+    "kaufland":  "Kaufland",
 }
 
 

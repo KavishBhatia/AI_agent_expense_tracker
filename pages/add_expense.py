@@ -14,7 +14,7 @@ dash.register_page(__name__, path="/add", name="Add Expense")
 
 
 _GROCERY_KW = {"edeka", "rewe", "lidl", "aldi", "kaufland", "netto", "penny", "norma",
-               "supermarkt", "grocery", "supermarket", "bäckerei", "bakery"}
+               "supermarkt", "grocery", "supermarket", "bäckerei", "bakery", "rossmann"}
 _DINING_KW  = {"restaurant", "cafe", "kaffee", "coffee", "pizza", "burger", "kebab",
                "mcdonald", "mensa", "bistro", "bäcker", "imbiss", "diner", "sushi"}
 _COMMUTE_KW = {"uber", "taxi", "bus", "bahn", "train", "metro", "tram", "mvv", "hvv",

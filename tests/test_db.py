@@ -131,12 +131,14 @@ class TestInsertExpense(BaseDbTest):
         insert_expense(4.00, "Shopping", "toy", merchant=" TEDI ")
         insert_expense(6.00, "Shopping", "shirt", merchant="wOoLwOrTh")
         insert_expense(20.00, "Electronics", "cable", merchant="AMAZON")
+        insert_expense(8.00, "Personal Care", "shampoo", merchant="ROSSMANN")
+        insert_expense(30.00, "Groceries", "weekly shop", merchant=" kaufland ")
 
         rows = fetch_expenses()
 
         self.assertEqual(
             [row["merchant"] for row in rows],
-            ["Aldi", "dm", "Action", "Tedi", "Woolworth", "Amazon"],
+            ["Aldi", "dm", "Action", "Tedi", "Woolworth", "Amazon", "Rossmann", "Kaufland"],
         )
 
     def test_default_source_is_manual(self):
