@@ -97,6 +97,16 @@ class TestAmazonMigration(BaseDbTest):
         self.assertEqual(row["merchant"], "Amazon")
         self.assertEqual(row["description"], "bought a cable on amazon")
 
+    def test_splits_store_for_item_patterns_for_new_merchants(self):
+        self._insert_raw("rossmann for shampoo")
+        self._insert_raw("kaufland for groceries")
+        init_db()
+        rows = fetch_expenses()
+        self.assertEqual(
+            [(row["merchant"], row["description"]) for row in rows],
+            [("Rossmann", "shampoo"), ("Kaufland", "groceries")],
+        )
+
     def test_does_not_touch_rows_with_existing_merchant(self):
         self._insert_raw("amazon for headphones", merchant="SomeOtherStore")
         init_db()
