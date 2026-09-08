@@ -22,6 +22,8 @@ _MERCHANT_CANONICAL: dict[str, str] = {
     "tedi":      "Tedi",
     "woolworth": "Woolworth",
     "amazon":    "Amazon",
+    "rossmann":  "Rossmann",
+    "kaufland":  "Kaufland",
 }
 
 
@@ -97,7 +99,14 @@ def init_db() -> None:
                 )
         # Migration: fix entries where the agent stored "[Store] for [item]" as the
         # full description with no merchant, because these stores weren't yet recognised.
-        for lower, canonical in [("action", "Action"), ("tedi", "Tedi"), ("woolworth", "Woolworth"), ("amazon", "Amazon")]:
+        for lower, canonical in [
+            ("action", "Action"),
+            ("tedi", "Tedi"),
+            ("woolworth", "Woolworth"),
+            ("amazon", "Amazon"),
+            ("rossmann", "Rossmann"),
+            ("kaufland", "Kaufland"),
+        ]:
             prefix = lower + " for "
             rows = conn.execute(
                 "SELECT id, description FROM expenses "

@@ -98,7 +98,8 @@ def top_merchants_data(start_date: str, end_date: str, n: int = 10) -> pd.DataFr
     )
 
 
-_GROCERY_DRUGSTORE_MERCHANTS = {"edeka", "lidl", "aldi", "netto", "dm", "müller", "muller"}
+_GROCERY_DRUGSTORE_MERCHANTS = {"edeka", "lidl", "aldi", "netto", "dm", "müller", "muller",
+                                 "rossmann", "kaufland"}
 
 
 def sub_expense_breakdown_data(start_date: str, end_date: str) -> pd.DataFrame:

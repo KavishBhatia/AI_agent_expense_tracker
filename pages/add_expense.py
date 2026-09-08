@@ -17,6 +17,8 @@ _GROCERY_KW = {"edeka", "rewe", "lidl", "aldi", "kaufland", "netto", "penny", "n
                "supermarkt", "grocery", "supermarket", "bäckerei", "bakery"}
 _DINING_KW  = {"restaurant", "cafe", "kaffee", "coffee", "pizza", "burger", "kebab",
                "mcdonald", "mensa", "bistro", "bäcker", "imbiss", "diner", "sushi"}
+_PERSONAL_CARE_KW = {"rossmann", "dm", "müller", "muller", "shampoo", "skincare",
+                     "cosmetics", "toiletries", "soap", "toothpaste", "deodorant"}
 _COMMUTE_KW = {"uber", "taxi", "bus", "bahn", "train", "metro", "tram", "mvv", "hvv",
                "fuel", "tanken", "petrol", "parking", "bvg", "db"}
 _ENTERTAINMENT_KW = {"cinema", "kino", "movie", "concert", "theatre", "museum",
@@ -28,6 +30,8 @@ def _infer_category(text: str) -> str:
     t = text.lower()
     if any(k in t for k in _ALCOHOL_KW):
         return "Alcohol"
+    if any(k in t for k in _PERSONAL_CARE_KW):
+        return "Personal Care"
     if any(k in t for k in _GROCERY_KW):
         return "Groceries"
     if any(k in t for k in _DINING_KW):

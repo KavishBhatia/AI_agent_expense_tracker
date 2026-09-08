@@ -97,6 +97,16 @@ class TestAmazonMigration(BaseDbTest):
         self.assertEqual(row["merchant"], "Amazon")
         self.assertEqual(row["description"], "bought a cable on amazon")
 
+    def test_splits_store_for_item_patterns_for_new_merchants(self):
+        self._insert_raw("rossmann for shampoo")
+        self._insert_raw("kaufland for groceries")
+        init_db()
+        rows = fetch_expenses()
+        self.assertEqual(
+            [(row["merchant"], row["description"]) for row in rows],
+            [("Rossmann", "shampoo"), ("Kaufland", "groceries")],
+        )
+
     def test_does_not_touch_rows_with_existing_merchant(self):
         self._insert_raw("amazon for headphones", merchant="SomeOtherStore")
         init_db()
@@ -131,12 +141,14 @@ class TestInsertExpense(BaseDbTest):
         insert_expense(4.00, "Shopping", "toy", merchant=" TEDI ")
         insert_expense(6.00, "Shopping", "shirt", merchant="wOoLwOrTh")
         insert_expense(20.00, "Electronics", "cable", merchant="AMAZON")
+        insert_expense(8.00, "Personal Care", "shampoo", merchant="ROSSMANN")
+        insert_expense(30.00, "Groceries", "weekly shop", merchant=" kaufland ")
 
         rows = fetch_expenses()
 
         self.assertEqual(
             [row["merchant"] for row in rows],
-            ["Aldi", "dm", "Action", "Tedi", "Woolworth", "Amazon"],
+            ["Aldi", "dm", "Action", "Tedi", "Woolworth", "Amazon", "Rossmann", "Kaufland"],
         )
 
     def test_default_source_is_manual(self):
