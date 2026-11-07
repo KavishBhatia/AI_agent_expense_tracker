@@ -277,7 +277,8 @@ def save_receipt(n_clicks, edit_data, parsed_data):
         merchant = (str(data.get("merchant") or "Unknown")).strip()
         date = (str(data.get("date") or "")).strip()
         try:
-            _date.fromisoformat(date)
+            if _date.fromisoformat(date).isoformat() != date:
+                raise ValueError("Expected YYYY-MM-DD")
         except ValueError:
             return (
                 dbc.Alert(f"Date '{date}' is not valid. Use YYYY-MM-DD or click Today.",
