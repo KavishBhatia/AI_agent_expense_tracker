@@ -8,7 +8,7 @@ import dash_bootstrap_components as dbc
 from dash import Input, Output, State, callback, dash_table, dcc, html
 
 from expense_tracker_agent.db import fetch_expenses, insert_expense, insert_expense_item
-from expense_tracker_agent.receipt_scanner import date_needs_attention, parse_receipt
+from expense_tracker_agent.receipt_scanner import ReceiptScanError, date_needs_attention, parse_receipt
 from expense_tracker_agent.tools import CATEGORIES
 
 dash.register_page(__name__, path="/scan", name="Scan Receipt")
@@ -83,10 +83,16 @@ def process_receipt(contents, filename):
     """Parse receipt image with Gemini vision model; write result to store."""
     if not contents:
         return dash.no_update, dash.no_update
-    _, b64 = contents.split(",", 1)
-    image_bytes = base64.b64decode(b64)
+    try:
+        _, b64 = contents.split(",", 1)
+        image_bytes = base64.b64decode(b64, validate=True)
+    except ValueError:  # includes binascii.Error from a bad base64 payload
+        return {"error": "Could not read the uploaded file. Try uploading the image again."}, html.Div()
     mime = "image/png" if filename and filename.lower().endswith(".png") else "image/jpeg"
-    receipt = parse_receipt(image_bytes, mime_type=mime)
+    try:
+        receipt = parse_receipt(image_bytes, mime_type=mime)
+    except ReceiptScanError as exc:
+        return {"error": str(exc)}, html.Div()
     if receipt is None:
         return {"error": "Could not parse this receipt. Try a clearer photo."}, html.Div()
     return {
