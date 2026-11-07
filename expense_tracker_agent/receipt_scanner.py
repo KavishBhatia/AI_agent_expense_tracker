@@ -39,7 +39,7 @@ def normalize_receipt_date(raw: str, today: Optional[date] = None) -> str:
     """Return raw if it is a valid ISO date, otherwise today's date. Past dates are kept."""
     today = today or date.today()
     try:
-        return date.fromisoformat((raw or "").strip()).isoformat()
+        return date.fromisoformat(raw.strip() if isinstance(raw, str) else "").isoformat()
     except ValueError:
         return today.isoformat()
 
