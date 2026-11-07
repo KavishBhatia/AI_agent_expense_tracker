@@ -3,6 +3,7 @@ import unittest
 from datetime import date
 from unittest.mock import MagicMock, patch
 
+import httpx
 from google.genai import errors
 
 from expense_tracker_agent.receipt_scanner import (
@@ -128,6 +129,62 @@ class TestParseReceiptErrors(unittest.TestCase):
         self.assertIn("API key", str(ctx.exception))
 
     @patch("expense_tracker_agent.receipt_scanner.genai")
+    def test_invalid_key_reported_as_http_400_gives_key_guidance(self, mock_genai):
+        # Real Gemini shape: HTTP 400 + ErrorInfo reason API_KEY_INVALID (not 401/403)
+        mock_genai.Client.return_value.models.generate_content.side_effect = errors.ClientError(
+            400,
+            {
+                "error": {
+                    "code": 400,
+                    "message": "API key not valid. Please pass a valid API key.",
+                    "status": "INVALID_ARGUMENT",
+                    "details": [
+                        {
+                            "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+                            "reason": "API_KEY_INVALID",
+                            "domain": "googleapis.com",
+                            "metadata": {"service": "generativelanguage.googleapis.com"},
+                        },
+                        {
+                            "@type": "type.googleapis.com/google.rpc.LocalizedMessage",
+                            "locale": "en-US",
+                            "message": "API key not valid. Please pass a valid API key.",
+                        },
+                    ],
+                }
+            },
+        )
+        with self.assertRaises(ReceiptScanError) as ctx:
+            parse_receipt(b"img")
+        self.assertIn("GOOGLE_API_KEY", str(ctx.exception))
+        self.assertNotIn("try again", str(ctx.exception).lower())
+
+    @patch("expense_tracker_agent.receipt_scanner.genai")
+    def test_unrelated_400_stays_generic(self, mock_genai):
+        bodies = [
+            {"error": {"code": 400, "message": "bad image", "status": "INVALID_ARGUMENT",
+                       "details": [{"@type": "type.googleapis.com/google.rpc.ErrorInfo",
+                                    "reason": "SOMETHING_ELSE"}]}},
+            {"error": {"code": 400, "message": "bad image", "status": "INVALID_ARGUMENT"}},
+            {"error": {"code": 400, "details": "not-a-list"}},
+        ]
+        for body in bodies:
+            mock_genai.Client.return_value.models.generate_content.side_effect = errors.ClientError(400, body)
+            with self.assertRaises(ReceiptScanError) as ctx:
+                parse_receipt(b"img")
+            self.assertIn("400", str(ctx.exception))
+            self.assertNotIn("GOOGLE_API_KEY", str(ctx.exception))
+
+    @patch("expense_tracker_agent.receipt_scanner.genai")
+    def test_transport_failures_raise_scan_error(self, mock_genai):
+        for exc in (httpx.ConnectError("refused"), httpx.ReadTimeout("timed out")):
+            mock_genai.Client.return_value.models.generate_content.side_effect = exc
+            with self.assertRaises(ReceiptScanError) as ctx:
+                parse_receipt(b"img")
+            self.assertIn("Gemini", str(ctx.exception))
+            self.assertIn("try again", str(ctx.exception).lower())
+
+    @patch("expense_tracker_agent.receipt_scanner.genai")
     def test_quota_raises_scan_error(self, mock_genai):
         mock_genai.Client.return_value.models.generate_content.side_effect = errors.ClientError(
             429, {"error": {"message": "quota"}}
@@ -165,3 +222,12 @@ class TestProcessReceiptCallback(unittest.TestCase):
 
         store, _ = scan_receipt.process_receipt("not-a-data-url", "r.png")
         self.assertIn("error", store)
+
+    @patch("expense_tracker_agent.receipt_scanner.genai")
+    def test_unreachable_gemini_becomes_error_store(self, mock_genai):
+        from pages import scan_receipt
+
+        mock_genai.Client.return_value.models.generate_content.side_effect = httpx.ConnectError("refused")
+        store, _ = scan_receipt.process_receipt("data:image/png;base64,AAAA", "r.png")
+        self.assertIn("error", store)
+        self.assertIn("Gemini", store["error"])
