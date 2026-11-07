@@ -85,7 +85,7 @@ def process_receipt(contents, filename):
         return dash.no_update, dash.no_update
     try:
         _, b64 = contents.split(",", 1)
-        image_bytes = base64.b64decode(b64)
+        image_bytes = base64.b64decode(b64, validate=True)
     except ValueError:  # includes binascii.Error from a bad base64 payload
         return {"error": "Could not read the uploaded file. Try uploading the image again."}, html.Div()
     mime = "image/png" if filename and filename.lower().endswith(".png") else "image/jpeg"
