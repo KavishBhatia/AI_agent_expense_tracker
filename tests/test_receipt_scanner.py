@@ -3,9 +3,12 @@ import unittest
 from datetime import date
 from unittest.mock import MagicMock, patch
 
+from google.genai import errors
+
 from expense_tracker_agent.receipt_scanner import (
     ReceiptData,
     ReceiptItem,
+    ReceiptScanError,
     date_needs_attention,
     normalize_receipt_date,
     parse_receipt,
@@ -105,3 +108,60 @@ class TestParseReceipt(unittest.TestCase):
 
         result = parse_receipt(b"bad_image")
         self.assertIsNone(result)
+
+
+class TestParseReceiptErrors(unittest.TestCase):
+    @patch("expense_tracker_agent.receipt_scanner.genai")
+    def test_missing_api_key_raises_scan_error(self, mock_genai):
+        mock_genai.Client.side_effect = ValueError("Missing key inputs argument!")
+        with self.assertRaises(ReceiptScanError) as ctx:
+            parse_receipt(b"img")
+        self.assertIn("GOOGLE_API_KEY", str(ctx.exception))
+
+    @patch("expense_tracker_agent.receipt_scanner.genai")
+    def test_bad_key_raises_scan_error(self, mock_genai):
+        mock_genai.Client.return_value.models.generate_content.side_effect = errors.ClientError(
+            403, {"error": {"message": "denied"}}
+        )
+        with self.assertRaises(ReceiptScanError) as ctx:
+            parse_receipt(b"img")
+        self.assertIn("API key", str(ctx.exception))
+
+    @patch("expense_tracker_agent.receipt_scanner.genai")
+    def test_quota_raises_scan_error(self, mock_genai):
+        mock_genai.Client.return_value.models.generate_content.side_effect = errors.ClientError(
+            429, {"error": {"message": "quota"}}
+        )
+        with self.assertRaises(ReceiptScanError) as ctx:
+            parse_receipt(b"img")
+        self.assertIn("quota", str(ctx.exception).lower())
+
+    @patch("expense_tracker_agent.receipt_scanner.genai")
+    def test_server_error_raises_scan_error(self, mock_genai):
+        mock_genai.Client.return_value.models.generate_content.side_effect = errors.ServerError(
+            503, {"error": {"message": "unavailable"}}
+        )
+        with self.assertRaises(ReceiptScanError) as ctx:
+            parse_receipt(b"img")
+        self.assertIn("503", str(ctx.exception))
+
+    @patch("expense_tracker_agent.receipt_scanner.genai")
+    def test_empty_response_raises_scan_error(self, mock_genai):
+        mock_genai.Client.return_value.models.generate_content.return_value = MagicMock(text=None)
+        with self.assertRaises(ReceiptScanError):
+            parse_receipt(b"img")
+
+
+class TestProcessReceiptCallback(unittest.TestCase):
+    def test_scan_error_becomes_error_store(self):
+        from pages import scan_receipt
+
+        with patch.object(scan_receipt, "parse_receipt", side_effect=ReceiptScanError("boom")):
+            store, _ = scan_receipt.process_receipt("data:image/png;base64,AAAA", "r.png")
+        self.assertEqual(store, {"error": "boom"})
+
+    def test_undecodable_upload_becomes_error_store(self):
+        from pages import scan_receipt
+
+        store, _ = scan_receipt.process_receipt("not-a-data-url", "r.png")
+        self.assertIn("error", store)

@@ -6,7 +6,7 @@ from datetime import date
 from typing import Optional
 
 from google import genai
-from google.genai import types
+from google.genai import errors, types
 
 from expense_tracker_agent.tools import CATEGORIES
 
@@ -69,13 +69,36 @@ class ReceiptData:
     items: list[ReceiptItem] = field(default_factory=list)
 
 
+class ReceiptScanError(Exception):
+    """The scan could not reach or use Gemini; the message is safe to show to the user."""
+
+
+def _api_error_message(exc: errors.APIError) -> str:
+    if exc.code in (401, 403):
+        return "Gemini rejected the API key. Check GOOGLE_API_KEY in .env."
+    if exc.code == 429:
+        return "Gemini quota exceeded. Wait a bit and try again."
+    return f"Gemini request failed ({exc.code}). Try again in a moment."
+
+
 def parse_receipt(image_bytes: bytes, mime_type: str = "image/jpeg") -> Optional[ReceiptData]:
-    client = genai.Client()
+    """Return parsed data, None if the reply isn't a valid receipt, or raise ReceiptScanError."""
+    try:
+        client = genai.Client()
+    except ValueError as exc:
+        raise ReceiptScanError(
+            "Gemini API key is missing or invalid. Check GOOGLE_API_KEY in .env."
+        ) from exc
     image_part = types.Part.from_bytes(data=image_bytes, mime_type=mime_type)
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=[_PROMPT.replace("TODAY", date.today().isoformat()), image_part],
-    )
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[_PROMPT.replace("TODAY", date.today().isoformat()), image_part],
+        )
+    except errors.APIError as exc:
+        raise ReceiptScanError(_api_error_message(exc)) from exc
+    if not response.text:
+        raise ReceiptScanError("Gemini returned no text for this image. Try a clearer photo.")
     raw = response.text.strip()
     # strip markdown code fences if present
     raw = re.sub(r"^```(?:json)?\s*", "", raw)
