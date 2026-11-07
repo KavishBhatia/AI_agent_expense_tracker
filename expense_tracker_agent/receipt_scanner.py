@@ -2,6 +2,7 @@
 import json
 import re
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Optional
 
 from google import genai
@@ -23,11 +24,34 @@ You are a receipt parser. Analyse this receipt image and return ONLY valid JSON 
 Categories allowed: CATEGORY_LIST
 
 Rules:
-- date must be YYYY-MM-DD; use today if unclear
+- today's date is TODAY; use it only if the receipt shows no readable date
+- date must be YYYY-MM-DD; receipts often print DD.MM.YY or DD.MM.YYYY, convert accordingly
 - amounts in euros as floats
 - category must be exactly one of the allowed values
 - return ONLY the JSON object, no markdown fences
 """.replace("CATEGORY_LIST", ", ".join(CATEGORIES))
+
+# A receipt older than this (or dated in the future) gets an extra warning in the confirm dialog.
+STALE_DATE_DAYS = 30
+
+
+def normalize_receipt_date(raw: str, today: Optional[date] = None) -> str:
+    """Return raw if it is a valid ISO date, otherwise today's date. Past dates are kept."""
+    today = today or date.today()
+    try:
+        return date.fromisoformat(raw.strip() if isinstance(raw, str) else "").isoformat()
+    except ValueError:
+        return today.isoformat()
+
+
+def date_needs_attention(iso_date: str, today: Optional[date] = None) -> bool:
+    """True if the date is in the future or more than STALE_DATE_DAYS old (or invalid)."""
+    today = today or date.today()
+    try:
+        d = date.fromisoformat(iso_date)
+    except ValueError:
+        return True
+    return d > today or (today - d).days > STALE_DATE_DAYS
 
 
 @dataclass
@@ -50,7 +74,7 @@ def parse_receipt(image_bytes: bytes, mime_type: str = "image/jpeg") -> Optional
     image_part = types.Part.from_bytes(data=image_bytes, mime_type=mime_type)
     response = client.models.generate_content(
         model="gemini-2.5-flash",
-        contents=[_PROMPT, image_part],
+        contents=[_PROMPT.replace("TODAY", date.today().isoformat()), image_part],
     )
     raw = response.text.strip()
     # strip markdown code fences if present
@@ -68,7 +92,7 @@ def parse_receipt(image_bytes: bytes, mime_type: str = "image/jpeg") -> Optional
         ]
         return ReceiptData(
             merchant=data.get("merchant", "Unknown"),
-            date=data.get("date", ""),
+            date=normalize_receipt_date(data.get("date", "")),
             total=float(data.get("total", 0.0)),
             items=items,
         )

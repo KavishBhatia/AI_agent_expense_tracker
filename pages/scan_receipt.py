@@ -8,7 +8,7 @@ import dash_bootstrap_components as dbc
 from dash import Input, Output, State, callback, dash_table, dcc, html
 
 from expense_tracker_agent.db import fetch_expenses, insert_expense, insert_expense_item
-from expense_tracker_agent.receipt_scanner import parse_receipt
+from expense_tracker_agent.receipt_scanner import date_needs_attention, parse_receipt
 from expense_tracker_agent.tools import CATEGORIES
 
 dash.register_page(__name__, path="/scan", name="Scan Receipt")
@@ -50,6 +50,20 @@ layout = html.Div([
             dbc.Button("Confirm & Save", id="receipt-confirm-btn", color="success", n_clicks=0),
             dbc.Button("Cancel", id="receipt-cancel-btn", color="secondary", outline=True, n_clicks=0),
         ],
+    ),
+    # Pop-up asking the user to check the date before anything is written to the DB
+    dbc.Modal(
+        [
+            dbc.ModalHeader(dbc.ModalTitle("Check the receipt date")),
+            dbc.ModalBody(id="receipt-date-modal-body"),
+            dbc.ModalFooter([
+                dbc.Button("Edit date", id="receipt-date-edit-btn", color="secondary", outline=True, n_clicks=0),
+                dbc.Button("Date is correct — save", id="receipt-date-confirm-btn", color="success", n_clicks=0),
+            ]),
+        ],
+        id="receipt-date-modal",
+        is_open=False,
+        centered=True,
     ),
     html.Div(id="receipt-save-result", className="mt-3"),
     html.Hr(className="mt-4"),
@@ -198,10 +212,50 @@ def show_actions(data):
 
 
 @callback(
+    Output("receipt-date-modal", "is_open"),
+    Output("receipt-date-modal-body", "children"),
+    Input("receipt-confirm-btn", "n_clicks"),
+    Input("receipt-date-edit-btn", "n_clicks"),
+    Input("receipt-date-confirm-btn", "n_clicks"),
+    State("receipt-edit-store", "data"),
+    State("receipt-parsed-store", "data"),
+    prevent_initial_call=True,
+)
+def toggle_date_modal(confirm_clicks, edit_clicks, save_clicks, edit_data, parsed_data):
+    """Open the date check when Confirm & Save is clicked; close it on either modal button."""
+    if dash.ctx.triggered_id != "receipt-confirm-btn":
+        return False, dash.no_update
+    if not confirm_clicks:
+        return dash.no_update, dash.no_update
+
+    data = edit_data or parsed_data
+    if not data or "error" in data:
+        return False, dash.no_update
+
+    iso = str(data.get("date") or "").strip()
+    try:
+        pretty = _date.fromisoformat(iso).strftime("%A, %d %B %Y")
+    except ValueError:
+        pretty = iso or "(no date)"
+
+    body = [
+        html.P("This receipt will be saved with the date:", className="mb-1"),
+        html.H4(pretty, className="fw-bold"),
+    ]
+    if date_needs_attention(iso):
+        body.append(dbc.Alert(
+            "This date is in the future or more than 30 days ago. "
+            "Fine for an older receipt, but double-check it was read correctly.",
+            color="warning", className="mb-0 mt-2",
+        ))
+    return True, body
+
+
+@callback(
     Output("receipt-save-result", "children"),
     Output("receipt-recent-list", "children"),
     Output("receipt-parsed-store", "data", allow_duplicate=True),
-    Input("receipt-confirm-btn", "n_clicks"),
+    Input("receipt-date-confirm-btn", "n_clicks"),
     State("receipt-edit-store", "data"),
     State("receipt-parsed-store", "data"),   # fallback if edit store not yet populated
     prevent_initial_call=True,
@@ -222,6 +276,16 @@ def save_receipt(n_clicks, edit_data, parsed_data):
     try:
         merchant = (str(data.get("merchant") or "Unknown")).strip()
         date = (str(data.get("date") or "")).strip()
+        try:
+            if _date.fromisoformat(date).isoformat() != date:
+                raise ValueError("Expected YYYY-MM-DD")
+        except ValueError:
+            return (
+                dbc.Alert(f"Date '{date}' is not valid. Use YYYY-MM-DD or click Today.",
+                          color="warning", dismissable=True),
+                dash.no_update,
+                dash.no_update,
+            )
         total_val = float(data.get("total") or 0)
         items = data.get("items") or []
 
@@ -273,7 +337,9 @@ def cancel_receipt(n_clicks):
 
 
 def _recent_saves():
-    rows = [r for r in fetch_expenses() if r.get("source") == "receipt_scan"][-5:][::-1]
+    # newest save first, regardless of the receipt's own date
+    scans = [r for r in fetch_expenses() if r.get("source") == "receipt_scan"]
+    rows = sorted(scans, key=lambda r: r["id"], reverse=True)[:5]
     if not rows:
         return html.P("No saved receipts yet.", className="text-muted small")
 
