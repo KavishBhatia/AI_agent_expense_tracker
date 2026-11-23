@@ -1,80 +1,92 @@
 # Tool Contracts
 
-These are the function signatures and behaviours the Gemini agent relies on.
-Any change to these contracts requires updating both the implementation and the agent instruction.
+Function signatures and behaviour the Gemini agent relies on (`expense_tracker_agent/tools.py`, registered in `agent.py`).
+Any change here requires updating both the implementation and the agent instruction (`_build_instruction`).
+
+Dates are ISO `YYYY-MM-DD`; amounts are in euros. `category` must be one of `CATEGORIES` (16 values, see `data-model.md`).
 
 ---
 
 ## add_expense
 
 ```python
-def add_expense(
-    amount: float,
-    description: str,
-    category: str,
-    merchant: str | None = None,
-    date: str | None = None,        # ISO YYYY-MM-DD; defaults to today
-) -> str
+def add_expense(amount: float, description: str, category: str,
+                merchant: str | None = None, date: str | None = None) -> str
 ```
 
-**Behaviour**:
-1. Assigns `id` = len(current expenses) + 1
-2. Assigns `timestamp` = current datetime ISO string
-3. Resolves `date` to today if not provided
-4. Appends `Expense` to in-memory `expenses` list
-5. Appends row to `expenses.csv` (creates file + header if not exists)
-6. Returns: `"Added: {description} — ${amount:.2f} [{category}] on {date}"`
+1. Resolves `date` to today if omitted and normalises `merchant` to its canonical name.
+2. If a merchant is given and the same date + merchant + amount already exists, returns a "Possible duplicate" warning and does **not** save.
+3. Otherwise inserts the expense and returns a confirmation including the assigned id.
 
-**Gemini calling guidance**: Gemini must always populate `category` (inferred if not stated). `merchant` and `date` are optional.
+The agent must always supply a `category` (inferred if the user did not state one).
 
----
+## force_add_expense
+
+Same signature as `add_expense`, but skips the duplicate check. Use only after the user explicitly confirms ("add anyway").
+
+## add_expense_item
+
+```python
+def add_expense_item(parent_id: int, amount: float, description: str, category: str) -> str
+```
+
+Adds a sub-item to an existing parent expense.
+
+## list_expense_items
+
+```python
+def list_expense_items(parent_id: int) -> str
+```
+
+Lists sub-items of a parent expense, or "No items found".
+
+## find_parent_expense_id
+
+```python
+def find_parent_expense_id(merchant: str, date: str) -> str
+```
+
+Returns the id of the parent expense for a merchant and date, as a string, or `not found`.
+
+## import_csv_row
+
+```python
+def import_csv_row(date: str, amount: float, merchant: str, category: str = "Miscellaneous") -> str
+```
+
+Imports a single CSV row; returns an "Imported" or "Skipped (duplicate)" message.
 
 ## calculate_total_spending
 
 ```python
-def calculate_total_spending(
-    start_date: str | None = None,   # ISO YYYY-MM-DD, inclusive
-    end_date: str | None = None,     # ISO YYYY-MM-DD, inclusive
-) -> str
+def calculate_total_spending(start_date: str | None = None, end_date: str | None = None) -> str
 ```
 
-**Behaviour**: Sums `amount` for all expenses within optional date range.
-Returns: `"Total spending: ${total:.2f}"` (optionally with date range note)
-
----
+Sums spending, optionally within an inclusive date range.
 
 ## get_spending_by_category
 
 ```python
-def get_spending_by_category(
-    start_date: str | None = None,
-    end_date: str | None = None,
-) -> str
+def get_spending_by_category(start_date: str | None = None, end_date: str | None = None) -> str
 ```
 
-**Behaviour**: Groups expenses by category within optional date range.
-Returns formatted multi-line string: `"- {category}: ${amount:.2f}\n"`
-
----
+Spending per category, optionally within an inclusive date range.
 
 ## list_recent_expenses
 
 ```python
-def list_recent_expenses(
-    count: int = 5,
-    category: str | None = None,    # filter by category (case-insensitive)
-) -> str
+def list_recent_expenses(count: int = 5, category: str | None = None) -> str
 ```
 
-**Behaviour**: Returns the most recent `count` expenses, optionally filtered by category.
-Returns formatted multi-line string.
+Most recent `count` expenses, optionally filtered by category (case-insensitive).
 
 ---
 
 ## Agent Instruction Contract
 
-The Gemini system prompt must include:
-1. Today's date (injected at agent construction time)
-2. The predefined category list with inference rules
-3. Instructions to extract `merchant` and resolve relative dates
-4. Instruction to always call `add_expense` with a resolved `category`
+The system prompt built by `_build_instruction(today)` must include:
+1. Today's date, injected at agent construction time
+2. The category list with inference rules
+3. Merchant extraction guidance, including the recognised merchant names (e.g. Action, Tedi, Woolworth, Amazon, Rossmann, Kaufland) and the "at [Store] for [item]" pattern
+4. Relative date resolution ("yesterday", "last Monday")
+5. The duplicate flow: on a duplicate warning, ask the user, and call `force_add_expense` only after they confirm

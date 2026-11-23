@@ -1,93 +1,97 @@
-# Implementation Plan: Expense Tracker Improvements
+# Implementation Plan: Expense Tracker
 
-**Branch**: `001-expense-tracker` | **Date**: 2026-06-03 | **Spec**: [spec.md](spec.md)
-
-**Input**: [specs/001-expense-tracker/spec.md](spec.md)
+**Last refreshed**: 2026-11-23 (rewritten to match the current app; the original CSV-era plan is in git history)
 
 ## Summary
 
-Extend the existing Google ADK expense tracker agent with CSV persistence, auto-categorization via improved Gemini prompting, and natural language parsing for merchant/date extraction. The agent architecture (ADK + tools pattern) stays unchanged; all changes are in `tools.py` and `agent.py`.
+A personal expense tracker: a Dash multi-page web app plus a Google ADK chat agent (Gemini 2.5 Flash) that records expenses from natural language. Data lives in local SQLite databases. Extras include CSV import, receipt scanning (Gemini Vision), monthly budgets, per-trip expense tracking, charts, and daily backups to Google Drive.
 
 ## Technical Context
 
-**Language/Version**: Python 3.11
-
-**Primary Dependencies**: google-adk, gemini-2.5-flash, pydantic (all existing); `csv` module (stdlib, no new installs)
-
-**Storage**: CSV file (`./expenses.csv`) — user-confirmed; Python stdlib `csv` module
-
-**Testing**: unittest (existing pattern in `test_agent.py`)
-
-**Target Platform**: Local machine (macOS/Linux), CLI via `adk run`
-
-**Project Type**: AI agent CLI tool
-
-**Performance Goals**: Interactive sub-2s response (unchanged — Gemini API latency dominates)
-
-**Constraints**: Local-only, no cloud storage, single-user, no new pip dependencies
-
-**Scale/Scope**: Personal use (~100–500 expenses total)
-
-## Constitution Check
-
-*Constitution is a placeholder template — no gates defined. No violations.*
+- **Language**: Python >=3.11, managed with `uv` (`uv.lock`), hatchling build
+- **Dependencies**: `google-adk==2.3.0`, `google-generativeai`, `pydantic`, `dash>=2.14`, `dash-bootstrap-components>=1.5`, `plotly>=5.18`, `pandas>=2`, `google-auth-oauthlib` and `google-api-python-client` (Drive backup only)
+- **Dev**: `pytest>=8` (tests are `unittest`-style classes run under pytest)
+- **Model**: Gemini 2.5 Flash, used by the agent, the categoriser fallback and the receipt scanner
+- **Setup**: `uv sync --dev`; copy `.env.example` to `.env` and set `GOOGLE_API_KEY`
+- **Run**: `uv run python app.py` (http://localhost:8050); `expense_start.command` / `expense_stop.command` are macOS launchers
+- **Test**: `uv run pytest tests/ -v`
+- **Constraints**: local-only, single-user, personal scale
 
 ## Project Structure
 
-### Documentation (this feature)
-
 ```text
-specs/001-expense-tracker/
-├── plan.md              # This file
-├── spec.md              # Feature specification
-├── research.md          # Phase 0 output
-├── data-model.md        # Phase 1 output
-├── quickstart.md        # Phase 1 output
-├── contracts/
-│   └── tools.md         # Tool interface contracts
-└── tasks.md             # Phase 2 output (not yet created)
-```
-
-### Source Code
-
-```text
+app.py                         # Dash shell: navbar, tools drawer, global stores, undo toast
+assets/custom.css
+pages/
+├── dashboard.py               # KPI cards, charts, day drill-down, budget progress
+├── add_expense.py             # chat UI over agent_bridge, date picker
+├── history.py                 # search, per-category averages, edit, delete + undo
+├── import_csv.py              # CSV upload, column auto-detect, preview
+├── scan_receipt.py            # receipt scan -> editable table -> save
+├── budgets.py                 # monthly budget sliders per category
+├── backup.py                  # backup page
+├── trips.py                   # trip list / create / delete
+└── trip_detail.py             # trip expenses: add, import, edit, delete, duplicate detection
 expense_tracker_agent/
-├── agent.py             # Update: new instruction with categories + date injection
-└── tools.py             # Update: Expense model, add_expense signature, CSV persistence
-
-expenses.csv             # Generated at runtime (gitignored)
-test_agent.py            # Update: new Expense fields, add_expense parameters
+├── agent.py                   # ADK root agent, _build_instruction(today)
+├── agent_bridge.py            # sync chat() wrapper over the async ADK runner
+├── tools.py                   # agent tools + CATEGORIES
+├── categoriser.py             # rule-based merchant match, Gemini fallback
+├── receipt_scanner.py         # Gemini Vision parse, date normalisation, API error handling
+├── charts.py                  # KPI stats and Plotly figure builders
+├── db.py                      # expenses.db access, migrations, merchant normalisation
+└── trip_db.py                 # trips.db access
+scripts/
+├── backup_db.py               # local + Google Drive backup (--auth, --local)
+└── install_backup_schedule.sh / uninstall_backup_schedule.sh
+tests/                         # test_db, test_tools, test_trip_db, test_receipt_scanner,
+                               # test_agent, test_agent_bridge, test_history, test_charts,
+                               # test_fallback_parser
+docs/superpowers/{specs,plans}/ # design docs for v2, history page, categoriser, trips
 ```
 
-## Implementation Phases
+## Data Model
 
-### Phase 1 — Extend `Expense` model and `add_expense` tool (tools.py)
+Both databases are SQLite files in the working directory (`expenses.db`, `trips.db`; both gitignored).
 
-1. Add `id`, `merchant`, `date`, `timestamp` fields to `Expense` Pydantic model
-2. Add `CATEGORIES` constant list
-3. Add `_load_expenses()` helper — reads `expenses.csv` into list on module load
-4. Add `_save_expense(expense)` helper — appends row to `expenses.csv`
-5. Replace `expenses = []` with `expenses = _load_expenses()`
-6. Update `add_expense` signature: `(amount, description, category, merchant=None, date=None)`
-7. Update `add_expense` body: assign id/timestamp, call `_save_expense`
-8. Update `calculate_total_spending` to accept `start_date`/`end_date` (optional)
-9. Update `get_spending_by_category` to accept `start_date`/`end_date` (optional)
-10. Update `list_recent_expenses` to accept `category` filter (optional)
+**`expenses.db`**
+- `expenses`: id, amount, merchant, category, description, date, timestamp, source (default `manual`), deleted (soft delete)
+- `expense_items`: line items, `parent_id` -> `expenses`
+- `budgets`: category (PK), monthly_limit
+- `init_db()` runs idempotent migrations on every start (add `deleted`, rename Transport -> Commute, normalise merchant casing, back-fill mis-parsed descriptions, import a legacy `expenses.csv`)
 
-### Phase 2 — Update agent instruction (agent.py)
+**`trips.db`**
+- `trips`: id, name, created_at
+- `trip_expenses`: id, trip_id (`ON DELETE CASCADE`), amount, merchant, category, description, date (hard delete)
 
-1. Import `date` from `datetime`
-2. Inject `date.today().isoformat()` into agent `instruction` at construction time
-3. Add category inference rules to instruction
-4. Add merchant extraction guidance to instruction
-5. Add date resolution guidance (today/yesterday/relative dates)
+## Agent Tools (`tools.py`)
 
-### Phase 3 — Update tests (test_agent.py)
+`add_expense` (with duplicate detection), `force_add_expense`, `add_expense_item`, `list_expense_items`, `find_parent_expense_id`, `import_csv_row`, `calculate_total_spending`, `get_spending_by_category`, `list_recent_expenses`.
 
-1. Update `test_add_expense_tool_call` mock args to include `date` parameter
-2. Update assertions for new `Expense` fields (id, date, timestamp)
-3. Ensure `tools.expenses.clear()` in `setUp` still works
+## Shipped
 
-## Complexity Tracking
+- CSV-based agent evolved into a Dash app on SQLite (v2), with six-plus charts and sub-expense line items
+- History page: search, edit, delete with confirm and undo
+- Budgets with progress bars and alerts on the dashboard
+- Trips: separate DB, list/detail pages, CSV import, edit, duplicate detection
+- CSV import hardening: delimiter/encoding detection, header fallbacks, per-row errors
+- Chat duplicate-expense detection with force-add
+- Merchant normalisation and recognition (Action, Tedi, Woolworth, Amazon, Rossmann, Kaufland)
+- Receipt scan: date confirmation, API error handling (`API_KEY_INVALID`, transport failures)
+- Daily backup of both DBs, local and Google Drive
 
-No constitution violations. Architecture unchanged from existing ADK pattern.
+## Backlog / Known Gaps
+
+**Test coverage**
+- No tests for `categoriser.py`
+- No tests for `pages/*` callbacks or `scripts/backup_db.py`
+- Budgets only tested at the `db.py` level (no alert test); `agent_bridge` has 3 tests
+
+**Documentation**
+- `specs/` and `README.md` were refreshed on 2026-11-23 to match the current app; keep them in sync when features change (see `tasks.md`)
+
+**Design inconsistencies**
+- The agent's "today" is fixed when `agent.py` loads, so a long-running process can go stale across midnight
+- Trip expenses are hard-deleted while main expenses are soft-deleted
+- DB paths are relative to the working directory, so running from elsewhere creates new DBs
+- Migrations run on every start with no schema version table
