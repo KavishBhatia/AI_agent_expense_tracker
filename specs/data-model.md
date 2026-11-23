@@ -1,70 +1,79 @@
 # Data Model
 
-## Expense
+Two SQLite files in the working directory, both gitignored: `expenses.db` (`expense_tracker_agent/db.py`) and `trips.db` (`expense_tracker_agent/trip_db.py`).
 
-The core entity. Stored as rows in `expenses.csv`.
+## expenses.db
 
-```python
-class Expense(BaseModel):
-    id: int                          # auto-increment, assigned on save
-    amount: float                    # positive number, e.g. 12.50
-    category: str                    # one of the 8 predefined categories
-    description: str                 # user-provided or LLM-inferred text
-    merchant: Optional[str] = None   # store/restaurant name if extractable
-    date: str                        # ISO date YYYY-MM-DD (resolved from NL)
-    timestamp: str                   # ISO datetime YYYY-MM-DDTHH:MM:SS (write time)
+```sql
+CREATE TABLE expenses (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    amount      REAL    NOT NULL,
+    merchant    TEXT,
+    category    TEXT    NOT NULL,
+    description TEXT    NOT NULL,
+    date        TEXT    NOT NULL,                 -- ISO YYYY-MM-DD
+    timestamp   TEXT    NOT NULL,                 -- ISO datetime, write time
+    source      TEXT    NOT NULL DEFAULT 'manual',
+    deleted     INTEGER NOT NULL DEFAULT 0        -- soft delete
+);
 
-    model_config = {"extra": "allow"}
+CREATE TABLE expense_items (                      -- sub-items of a parent expense
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    parent_id   INTEGER NOT NULL REFERENCES expenses(id),
+    amount      REAL    NOT NULL,
+    description TEXT    NOT NULL,
+    category    TEXT    NOT NULL,
+    timestamp   TEXT    NOT NULL
+);
+
+CREATE TABLE budgets (
+    category      TEXT PRIMARY KEY,
+    monthly_limit REAL NOT NULL
+);
 ```
 
-### Field rules
+### Categories
 
-| Field | Required | Source | Validation |
-|-------|----------|--------|-----------|
-| `id` | auto | assigned on `add_expense` | positive int |
-| `amount` | yes | user / LLM extract | > 0 |
-| `category` | auto | user or LLM infer | one of 8 values |
-| `description` | yes | user text | non-empty string |
-| `merchant` | no | LLM extract | string or null |
-| `date` | auto | user or resolved | YYYY-MM-DD |
-| `timestamp` | auto | write time | YYYY-MM-DDTHH:MM:SS |
+`CATEGORIES` in `expense_tracker_agent/tools.py` (16 values): Groceries, Food & Dining, Commute, Entertainment, Clothing & Fashion, Pharmacy, Health & Fitness, Housing & Utilities, Travel, Electronics, Subscriptions, Personal Care, Education, Gifts, Alcohol, Miscellaneous.
 
-### Predefined Categories
+### Migrations (run on every `init_db()`, idempotent)
 
-```python
-CATEGORIES = [
-    "Food",           # restaurants, cafes, fast food
-    "Groceries",      # supermarkets, grocery stores
-    "Transport",      # Uber, taxi, fuel, public transport
-    "Entertainment",  # Netflix, cinema, games, events
-    "Bills",          # electricity, gas, internet, rent, insurance
-    "Healthcare",     # pharmacy, doctor, hospital
-    "Shopping",       # clothing, electronics, Amazon
-    "Other",          # fallback
-]
+- add the `deleted` column to older databases
+- rename category Transport to Commute (expenses, expense_items, budgets)
+- normalise known merchant names to canonical casing
+- back-fill rows where the agent stored "[Store] for [item]" as the description
+- `migrate_from_csv` imports a legacy `expenses.csv`
+
+There is no schema version table.
+
+## trips.db
+
+```sql
+CREATE TABLE trips (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE trip_expenses (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    trip_id     INTEGER NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
+    amount      REAL NOT NULL,
+    merchant    TEXT,
+    category    TEXT NOT NULL,
+    description TEXT,
+    date        TEXT NOT NULL
+);
 ```
 
-## CSV Layout
+Trip expenses are hard-deleted.
 
-File: `./expenses.csv` (project root, gitignored)
-
-```
-id,amount,category,description,merchant,date,timestamp
-1,45.00,Groceries,Weekly groceries,Whole Foods,2026-06-03,2026-06-03T10:15:30
-2,12.50,Food,Lunch,McDonald's,2026-06-03,2026-06-03T13:00:00
-3,80.00,Bills,Electricity bill,,2026-06-01,2026-06-03T18:30:00
-```
-
-## State Transitions
+## Data flow
 
 ```
-User input (natural language)
-    ↓  Gemini parses: amount, description, merchant, date, category
-add_expense() called
-    ↓  assigns id, timestamp
-Expense appended to in-memory list + written to CSV row
-    ↓
-CSV file updated (append mode)
+Chat message -> Gemini agent -> add_expense (duplicate check when a merchant is supplied)
+CSV row -> local date/amount parsing + categoriser -> import_csv_row (duplicate detection requires a non-empty merchant)
+Receipt photo -> Gemini Vision -> editable review + date confirmation (no duplicate check)
+    -> insert into expenses.db
+    -> dashboard, history and budgets read from the same DB
 ```
-
-On agent restart: `expenses = _load_expenses()` reads all rows from CSV back into memory.

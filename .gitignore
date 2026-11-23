@@ -224,3 +224,4 @@ llms-full.txt
 openspec/
 .dash_cache/
 trips.db
+.tokensave/

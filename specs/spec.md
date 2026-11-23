@@ -1,61 +1,49 @@
-# Feature Spec: Expense Tracker Agent — Persistence, Auto-categorization & NL Input
+# Feature Spec: ExpenseAI
 
-**Branch**: `001-expense-tracker` | **Date**: 2026-06-03
+**Last refreshed**: 2026-11-23 (the original 2026-06-03 CSV-era spec is in git history)
 
 ## Overview
 
-Improve the existing local expense tracker AI agent by adding three capabilities:
-1. **Persistence** — save expenses to a CSV file so data survives app restarts
-2. **Auto-categorization** — infer expense category from natural descriptions like "grocery market" without requiring explicit user input
-3. **Natural language input** — parse free-form input like "spent $45 at Whole Foods yesterday" into structured expense fields
-
-## Current State
-
-The working prototype (`expense_tracker_agent/`) uses Google ADK + Gemini 2.5 Flash with four tools:
-- `add_expense(amount, category, description)` — adds to an in-memory list
-- `calculate_total_spending()` — sums all expenses
-- `get_spending_by_category()` — groups by category
-- `list_recent_expenses(count=5)` — shows recent entries
-
-**What works well:**
-- Clean agent/tool separation
-- Pydantic data validation
-- Good unittest coverage pattern
-- Tool docstrings guide Gemini accurately
-
-**Known gaps:**
-- All data is lost on restart (in-memory only)
-- Category must be provided explicitly by the user
-- No timestamp on expenses (no date-based filtering possible)
-- No merchant/location field
+A local, single-user expense tracker with two ways in: a conversational Gemini agent and a Dash web UI. Expenses are stored in SQLite and explored through charts, history, budgets and trips.
 
 ## Requirements
 
-### R1 — CSV Persistence
-- Expenses saved to `./expenses.csv` in project root on every `add_expense` call
-- File loaded on agent startup if it exists
-- CSV columns: `id, amount, category, description, merchant, date, timestamp`
-- `id` is auto-generated (UUID or sequential integer)
+### R1 — Persistence
+- Expenses are stored in `expenses.db` (SQLite); trips in `trips.db`.
+- Databases are created automatically on first run; schema changes are applied by idempotent migrations in `init_db()`.
+- Main expenses are soft-deleted (`deleted` flag) so deletes can be undone. On every app startup, `app.py` attempts to import a legacy `expenses.csv`; archive it after verifying migration to avoid reimporting rows, especially those without a merchant.
 
-### R2 — Auto-categorization
-- Predefined category list: Food, Groceries, Transport, Entertainment, Bills, Healthcare, Shopping, Other
-- Agent infers category from description/merchant when user doesn't specify
-- User can override with explicit category
-- Category inference done via updated Gemini system prompt (no separate API call)
+### R2 — Conversational entry and auto-categorisation
+- The agent (Gemini 2.5 Flash via Google ADK) turns free-form input such as "€9.49 at Edeka on 10/06" into amount, merchant, description, category and date.
+- Categories come from a fixed list of 16 (`CATEGORIES` in `expense_tracker_agent/tools.py`), including Groceries, Food & Dining, Commute, Housing & Utilities and Miscellaneous. The agent infers the category and never asks for it.
+- Relative dates ("yesterday") resolve against today's date, which is injected into the agent instruction at construction time.
+- Known merchants are normalised to a canonical name (`normalize_merchant` in `db.py`).
+- Sub-items can be attached to a parent expense (`expense_items`).
 
-### R3 — Natural Language Parsing
-- Agent parses free-form input → structured fields
-- Examples:
-  - "spent $45 at Whole Foods" → amount=45, merchant="Whole Foods", category="Groceries"
-  - "lunch at McDonald's 12.50" → amount=12.50, merchant="McDonald's", category="Food"
-  - "electricity bill 80" → amount=80, category="Bills", description="electricity bill"
-- Date parsing: "yesterday", "last Monday", "today" resolved to ISO date (default: today)
+### R3 — Duplicate protection
+- `add_expense` warns without saving when the same date + merchant + amount already exists. `force_add_expense` saves after the user confirms.
+- Trip expenses have their own duplicate detection.
 
-### R4 — Enhanced Expense Model
-- Add `merchant` (optional), `date` (ISO YYYY-MM-DD), `timestamp` (ISO datetime), `id` fields to `Expense`
-- `add_expense` tool signature becomes: `add_expense(amount, description, category=None, merchant=None, date=None)`
-- Category optional — inferred if not provided
+### R4 — Bulk input
+- **CSV import**: the main `/import` page accepts UTF-8, comma-separated files, auto-detects date/cost/merchant columns (DD/MM/YYYY aware), shows a preview, reports per-row errors, and skips duplicates when a non-empty merchant matches. Categories come from `categoriser.py` (rules first, Gemini fallback in chunks of 50). Delimiter detection and a Latin-1 encoding fallback are available in the trip importer only.
+- **Receipt scan**: Gemini Vision extracts merchant, total and line items into an editable table. The date is confirmed before saving (dates older than 30 days are flagged), and API errors surface as a message in the UI.
 
-### R5 — Backward Compatibility
-- Existing tests must continue to pass (or be updated minimally)
-- Agent instruction updated to guide Gemini on NL parsing and category inference
+### R5 — Review and edit
+- **Dashboard**: KPI cards, monthly trend, category donut, weekly bars, top merchants, weekly groceries trend, heatmap, and click-through day drill-down.
+- **History**: keyword search, per-category averages, edit, delete with confirm and undo.
+
+### R6 — Budgets
+- Monthly limit per category (`budgets` table), set with sliders; the dashboard shows progress bars and alerts.
+
+### R7 — Trips
+- Separate expense lists per trip (`trips.db`): manual add, CSV import, edit, delete, duplicate detection, daily chart.
+
+### R8 — Backup
+- `scripts/backup_db.py` backs up both databases locally and to Google Drive (OAuth); a macOS schedule can be installed or removed with the scripts in `scripts/`.
+
+## Constraints
+- Local-only, single-user, personal scale (hundreds to low thousands of rows).
+- Python >=3.11, managed with `uv`; `GOOGLE_API_KEY` is required for the agent, categoriser fallback and receipt scan.
+
+## Out of Scope
+- Multi-user accounts, cloud-hosted storage, mobile apps, bank-feed integration.

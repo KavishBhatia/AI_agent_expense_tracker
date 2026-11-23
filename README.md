@@ -10,6 +10,10 @@ A personal expense tracker with a conversational AI agent and a web dashboard. L
 | **Add Expense** | Chat with a Gemini-powered agent — "€9.49 at Edeka on 10/06" just works. Pick a date from the date picker or leave it blank for today. |
 | **Import CSV** | Upload a CSV, auto-detect date/cost/merchant columns (DD/MM/YYYY aware), preview before committing, get per-row error detail on failures. |
 | **Scan Receipt** | Upload a receipt photo — Gemini Vision extracts the merchant, total, and individual line items into an editable table before saving. |
+| **History** | Search expenses by keyword, see per-category averages, edit entries, and delete with confirmation and undo. |
+| **Trips** | Track expenses per trip in a separate database: add manually or import CSV, edit, and get duplicate detection plus a daily chart. |
+| **Budgets** | Set a monthly limit per category; the dashboard shows progress bars and alerts. |
+| **Backup** | Daily backup of both databases, locally and to Google Drive (see `scripts/`). |
 
 ## Tech stack
 
@@ -58,20 +62,33 @@ AI_agent_expense_tracker/
 ├── pages/                          # Dash multi-page UI
 │   ├── dashboard.py
 │   ├── add_expense.py
+│   ├── history.py
 │   ├── import_csv.py
-│   └── scan_receipt.py
+│   ├── scan_receipt.py
+│   ├── budgets.py
+│   ├── backup.py
+│   ├── trips.py
+│   └── trip_detail.py
 ├── expense_tracker_agent/          # Backend package
 │   ├── agent.py                    # ADK root agent
 │   ├── tools.py                    # Agent tools (add, list, calculate…)
-│   ├── db.py                       # SQLite layer
+│   ├── db.py                       # SQLite layer (expenses.db)
+│   ├── trip_db.py                  # SQLite layer (trips.db)
+│   ├── categoriser.py              # Rule-based + Gemini categorisation
 │   ├── receipt_scanner.py          # Gemini Vision receipt parsing
 │   ├── charts.py                   # Plotly figure builders
 │   └── agent_bridge.py             # Sync bridge from Dash → async ADK
+├── scripts/                        # Backup script and schedule installers
+├── specs/                          # Plan, spec, data model, tool contracts
 └── tests/
     ├── test_db.py
+    ├── test_trip_db.py
     ├── test_charts.py
     ├── test_tools.py
     ├── test_agent.py
+    ├── test_agent_bridge.py
+    ├── test_history.py
+    ├── test_fallback_parser.py
     └── test_receipt_scanner.py
 ```
 
