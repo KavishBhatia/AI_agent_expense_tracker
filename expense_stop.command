@@ -93,9 +93,11 @@ if [ "$TERM_PROGRAM" = "Apple_Terminal" ] && [ "${#TTYS[@]}" -gt 0 ]; then
         -e 'tell application "Terminal"' \
         -e 'set ids to {}' \
         -e 'repeat with w in (windows)' \
+        -e 'set allTabsMatch to true' \
         -e 'repeat with t in (tabs of w)' \
-        -e 'if argv contains (tty of t) then set end of ids to (id of w)' \
+        -e 'if argv does not contain (tty of t) then set allTabsMatch to false' \
         -e 'end repeat' \
+        -e 'if allTabsMatch then set end of ids to (id of w)' \
         -e 'end repeat' \
         -e 'repeat with i in ids' \
         -e 'try' \
