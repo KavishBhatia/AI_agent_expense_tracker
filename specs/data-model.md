@@ -71,9 +71,9 @@ Trip expenses are hard-deleted.
 ## Data flow
 
 ```
-Chat message / CSV row / receipt photo
-    -> Gemini (agent, categoriser or vision) extracts amount, merchant, date, category
-    -> duplicate check (date + merchant + amount)
+Chat message -> Gemini agent -> add_expense (duplicate check when a merchant is supplied)
+CSV row -> local date/amount parsing + categoriser -> import_csv_row (duplicate detection requires a non-empty merchant)
+Receipt photo -> Gemini Vision -> editable review + date confirmation (no duplicate check)
     -> insert into expenses.db
     -> dashboard, history and budgets read from the same DB
 ```
