@@ -46,7 +46,7 @@ scripts/
 └── install_backup_schedule.sh / uninstall_backup_schedule.sh
 tests/                         # test_db, test_tools, test_trip_db, test_receipt_scanner,
                                # test_agent, test_agent_bridge, test_history, test_charts,
-                               # test_fallback_parser
+                               # test_fallback_parser, test_categoriser
 docs/superpowers/{specs,plans}/ # design docs for v2, history page, categoriser, trips
 ```
 
@@ -83,7 +83,6 @@ Both databases are SQLite files in the working directory (`expenses.db`, `trips.
 ## Backlog / Known Gaps
 
 **Test coverage**
-- No tests for `categoriser.py`
 - No tests for `pages/*` callbacks or `scripts/backup_db.py`
 - Budgets only tested at the `db.py` level (no alert test); `agent_bridge` has 3 tests
 

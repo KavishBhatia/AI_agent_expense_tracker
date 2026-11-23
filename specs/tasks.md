@@ -24,7 +24,7 @@
 ## Remaining
 
 ### Test coverage
-- [ ] Tests for `categoriser.py` (rule match, Gemini fallback, chunking)
+- [x] Tests for `categoriser.py` (rule match, Gemini fallback, chunking) in `tests/test_categoriser.py`
 - [ ] Tests for `scripts/backup_db.py`
 - [ ] Tests for `pages/*` callbacks (dashboard, budgets, trips, trip_detail, scan_receipt, import_csv, add_expense)
 - [ ] Budget alert tests; more `agent_bridge` tests (currently 3)
