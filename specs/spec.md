@@ -25,7 +25,7 @@ A local, single-user expense tracker with two ways in: a conversational Gemini a
 - Trip expenses have their own duplicate detection.
 
 ### R4 — Bulk input
-- **CSV import**: the main `/import` page accepts UTF-8, comma-separated files, auto-detects date/cost/merchant columns (DD/MM/YYYY aware), shows a preview, reports per-row errors, and skips duplicates when a non-empty merchant matches. Categories come from `categoriser.py` (rules first, Gemini fallback in chunks of 50). Delimiter detection and a Latin-1 encoding fallback are available in the trip importer only.
+- **CSV import**: the main `/import` page accepts UTF-8, comma-separated files, auto-detects date/cost/merchant columns (DD/MM/YYYY aware; ISO year-first dates are read as year-month-day, via `parse_csv_date` in `dates.py`, which the trip importer also uses), shows a preview, reports per-row errors, and skips duplicates when a non-empty merchant matches. Categories come from `categoriser.py` (rules first, Gemini fallback in chunks of 50). Delimiter detection and a Latin-1 encoding fallback are available in the trip importer only.
 - **Receipt scan**: Gemini Vision extracts merchant, total and line items into an editable table. The date is confirmed before saving (dates older than 30 days are flagged), and API errors surface as a message in the UI.
 
 ### R5 — Review and edit
