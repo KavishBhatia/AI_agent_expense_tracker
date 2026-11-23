@@ -11,6 +11,7 @@ import plotly.graph_objects as go
 from dash import ALL, Input, Output, State, callback, dcc, html
 
 from expense_tracker_agent.categoriser import classify_expenses
+from expense_tracker_agent.dates import parse_csv_date
 from expense_tracker_agent.tools import CATEGORIES
 from expense_tracker_agent.trip_db import (
     delete_trip_expense, fetch_trip, fetch_trip_expense, fetch_trip_expenses,
@@ -494,7 +495,7 @@ def import_csv(contents, filename, trip_id, search):
             merchant = str(row[name_col]).strip() if name_col else None
             if merchant in ("", "nan", "None", "NaN"):
                 merchant = None
-            norm_date = pd.to_datetime(str(row[date_col]), dayfirst=True).strftime("%Y-%m-%d")
+            norm_date = parse_csv_date(str(row[date_col]))
             items.append({"description": merchant or "import", "merchant": merchant,
                           "amount": amount, "date": norm_date})
         except Exception as exc:

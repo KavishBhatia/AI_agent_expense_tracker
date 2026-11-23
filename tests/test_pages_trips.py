@@ -686,11 +686,8 @@ class TestImportCsv(BaseTripPageTest):
         self.run_import("date,amount,name\n13/05/2026,5,X\n")
         self.assertEqual(len(fetch_trip_expenses(self.tid)), 2)
 
-    @unittest.expectedFailure
     def test_iso_dates_are_not_day_month_swapped(self):
-        # BUG (pages/trip_detail.py:497): pd.to_datetime(..., dayfirst=True) swaps day and
-        # month for ISO dates on this pandas version: "2026-06-01" -> 2026-01-06.
-        # Remove @expectedFailure once the importer parses ISO dates correctly.
+        # Regression: pd.to_datetime(..., dayfirst=True) turned "2026-06-01" into 2026-01-06.
         self.run_import("date,amount,name\n2026-06-01,5,X\n")
         self.assertEqual(fetch_trip_expenses(self.tid)[0]["date"], "2026-06-01")
 
