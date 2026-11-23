@@ -225,3 +225,4 @@ openspec/
 .dash_cache/
 trips.db
 .tokensave/
+.expense_tracker.pid

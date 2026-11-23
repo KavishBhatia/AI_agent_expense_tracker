@@ -15,7 +15,7 @@ A free key is available at https://aistudio.google.com/.
 uv run python app.py
 ```
 
-Open http://localhost:8050. `expenses.db` and `trips.db` are created on first launch. Stop the foreground server with Ctrl+C. On macOS, `expense_start.command` starts the app in the background, but `expense_stop.command` currently reads a different PID-file path and cannot stop that process.
+Open http://localhost:8050. `expenses.db` and `trips.db` are created on first launch. Stop the foreground server with Ctrl+C. On macOS, double-click `expense_start.command` to start the app in the background and `expense_stop.command` to stop it (both use `.expense_tracker.pid` in the project root).
 
 ## Pages
 
