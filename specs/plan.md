@@ -84,8 +84,8 @@ Both databases are SQLite files in the working directory (`expenses.db`, `trips.
 ## Backlog / Known Gaps
 
 **Test coverage**
-- No tests for `pages/*` callbacks or `scripts/backup_db.py`
-- Budgets only tested at the `db.py` level (no alert test); `agent_bridge` has 3 tests
+- Page callbacks are tested by calling them directly; Dash wiring (callback registration, layouts) and browser behaviour are not covered
+- Several bugs found by these tests are listed in `tasks.md` under "Bugs found by the new tests"
 
 **Documentation**
 - `specs/` and `README.md` were refreshed on 2026-11-23 to match the current app; keep them in sync when features change (see `tasks.md`)
