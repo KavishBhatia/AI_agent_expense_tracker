@@ -90,6 +90,8 @@ AI_agent_expense_tracker/
     ├── test_history.py
     ├── test_fallback_parser.py
     ├── test_categoriser.py
+    ├── test_backup_script.py
+    ├── test_pages_*.py             # Dash page callbacks (budgets, trips, dashboard, history, import, scan…)
     └── test_receipt_scanner.py
 ```
 
