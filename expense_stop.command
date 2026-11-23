@@ -9,7 +9,7 @@ if [ ! -f "$PID_FILE" ]; then
 fi
 
 read -r PID < "$PID_FILE" || PID=""
-if [[ "$PID" =~ ^[0-9]+$ ]] && kill -0 "$PID" 2>/dev/null; then
+if [[ "$PID" =~ ^[1-9][0-9]*$ ]] && kill -0 "$PID" 2>/dev/null; then
     kill "$PID"
     echo "Expense Tracker stopped."
 else
