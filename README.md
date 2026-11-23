@@ -89,6 +89,7 @@ AI_agent_expense_tracker/
     ├── test_agent_bridge.py
     ├── test_history.py
     ├── test_fallback_parser.py
+    ├── test_categoriser.py
     └── test_receipt_scanner.py
 ```
 
