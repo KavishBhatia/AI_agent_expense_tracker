@@ -85,7 +85,7 @@ Most recent `count` expenses, optionally filtered by category (case-insensitive)
 ## Agent Instruction Contract
 
 The system prompt built by `_build_instruction(today)` must include:
-1. Today's date, injected at agent construction time
+1. Today's date, injected on every request
 2. The category list with inference rules
 3. Merchant extraction guidance, including the recognised merchant names (e.g. Action, Tedi, Woolworth, Amazon, Rossmann, Kaufland) and the "at [Store] for [item]" pattern
 4. Relative date resolution ("yesterday", "last Monday")

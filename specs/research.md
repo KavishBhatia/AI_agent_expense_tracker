@@ -21,9 +21,7 @@ Current decisions behind the app. The original CSV-era research (stdlib `csv` pe
 
 ## 3. Natural-language parsing
 
-**Decision**: Rely on Gemini via the system prompt, with no NLP library. Today's date is injected into the instruction at construction time so relative dates resolve correctly.
-
-**Caveat**: The date is fixed when the agent module loads, so a long-running process can go stale across midnight.
+**Decision**: Rely on Gemini via the system prompt, with no NLP library. Today's date is injected into the instruction on every request (an ADK `InstructionProvider`, `_instruction_provider` in `agent.py`), so relative dates stay correct in a long-running process.
 
 ## 4. Merchant normalisation
 

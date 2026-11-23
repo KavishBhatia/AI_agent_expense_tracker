@@ -91,7 +91,6 @@ Both databases are SQLite files in the working directory (`expenses.db`, `trips.
 - `specs/` and `README.md` were refreshed on 2026-11-23 to match the current app; keep them in sync when features change (see `tasks.md`)
 
 **Design inconsistencies**
-- The agent's "today" is fixed when `agent.py` loads, so a long-running process can go stale across midnight
 - Trip expenses are hard-deleted while main expenses are soft-deleted
 - DB paths are relative to the working directory, so running from elsewhere creates new DBs
 - Migrations run on every start with no schema version table

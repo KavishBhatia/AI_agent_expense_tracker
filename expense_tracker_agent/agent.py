@@ -82,10 +82,15 @@ def _build_instruction(today: str) -> str:
     )
 
 
+def _instruction_provider(ctx) -> str:
+    """ADK InstructionProvider: resolved on every request so 'today' never goes stale."""
+    return _build_instruction(today=date.today().isoformat())
+
+
 root_agent = Agent(
     name="expense_tracker",
     model=Gemini(model="gemini-2.5-flash"),
-    instruction=_build_instruction(today=date.today().isoformat()),
+    instruction=_instruction_provider,
     tools=[
         add_expense,
         force_add_expense,
