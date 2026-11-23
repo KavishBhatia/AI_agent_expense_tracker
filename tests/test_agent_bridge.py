@@ -181,7 +181,10 @@ class TestAgentBridgeLoop(unittest.TestCase):
         bridge._loop = None
         first = bridge._get_loop()
         self.assertIs(first, bridge._get_loop())
-        self.assertTrue(first.is_running())
+        import threading
+        ready = threading.Event()
+        first.call_soon_threadsafe(ready.set)
+        self.assertTrue(ready.wait(timeout=5), "Background loop did not start")
 
     def test_new_loop_created_when_previous_is_closed(self):
         import asyncio
