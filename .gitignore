@@ -226,3 +226,4 @@ openspec/
 trips.db
 .tokensave/
 .expense_tracker.pid
+.expense_tracker.tty
