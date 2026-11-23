@@ -174,11 +174,36 @@ class TestAgentBridgeSession(unittest.TestCase):
 
 
 class TestAgentBridgeLoop(unittest.TestCase):
-    def tearDown(self):
+    def setUp(self):
+        import threading
+
+        original_loop = bridge._loop
+        threads = []
+
+        def make_thread(*args, **kwargs):
+            thread = threading.Thread(*args, **kwargs)
+            threads.append((kwargs["target"].__self__, thread))
+            return thread
+
+        def cleanup():
+            try:
+                for loop, thread in threads:
+                    if thread.ident is not None:
+                        loop.call_soon_threadsafe(loop.stop)
+                        thread.join(timeout=5)
+                        self.assertFalse(thread.is_alive(), "Background loop did not stop")
+                    loop.close()
+            finally:
+                bridge._loop = original_loop
+
+        self.addCleanup(cleanup)
         bridge._loop = None
+        threading_patch = patch.object(bridge, "threading")
+        mock_threading = threading_patch.start()
+        self.addCleanup(threading_patch.stop)
+        mock_threading.Thread.side_effect = make_thread
 
     def test_loop_is_reused_while_open(self):
-        bridge._loop = None
         first = bridge._get_loop()
         self.assertIs(first, bridge._get_loop())
         import threading
