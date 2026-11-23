@@ -33,4 +33,4 @@
 - [ ] Decide on soft delete for trip expenses (currently hard delete, unlike main expenses)
 - [ ] Resolve DB paths relative to the project root instead of the working directory
 - [ ] Add a schema version table instead of running all migrations on every start
-- [ ] Recompute the agent's "today" per request instead of at module load
+- [x] Recompute the agent's "today" per request (`_instruction_provider` in `agent.py`)

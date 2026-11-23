@@ -17,7 +17,7 @@ from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai.types import Content, FinishReason, FunctionCall, FunctionResponse, Part
 
-from expense_tracker_agent.agent import _build_instruction, root_agent
+from expense_tracker_agent.agent import _build_instruction, _instruction_provider, root_agent
 from expense_tracker_agent import tools
 import expense_tracker_agent.db as db_module
 from expense_tracker_agent.db import init_db, fetch_expenses, insert_expense
@@ -60,9 +60,28 @@ class TestAgentInstruction(unittest.TestCase):
             self.assertIn(merchant, self.instruction)
         self.assertIn("at Action for socks", self.instruction)
 
-    def test_root_agent_instruction_contains_todays_date(self):
+    def test_root_agent_instruction_is_a_provider(self):
+        # A frozen string would go stale after midnight in a long-running app.
+        self.assertTrue(callable(root_agent.instruction))
+
+    def test_instruction_provider_contains_todays_date(self):
         today = date.today().isoformat()
-        self.assertIn(today, root_agent.instruction)
+        self.assertIn(today, _instruction_provider(None))
+
+    def test_instruction_provider_reflects_date_on_each_call(self):
+        class _FakeDate:
+            _days = iter([date(2026, 11, 23), date(2026, 11, 24)])
+
+            @classmethod
+            def today(cls):
+                return next(cls._days)
+
+        with patch("expense_tracker_agent.agent.date", _FakeDate):
+            first = _instruction_provider(None)
+            second = _instruction_provider(None)
+        self.assertIn("2026-11-23", first)
+        self.assertIn("2026-11-24", second)
+        self.assertNotIn("2026-11-23", second)
 
 
 # ---------------------------------------------------------------------------

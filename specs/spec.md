@@ -16,7 +16,7 @@ A local, single-user expense tracker with two ways in: a conversational Gemini a
 ### R2 — Conversational entry and auto-categorisation
 - The agent (Gemini 2.5 Flash via Google ADK) turns free-form input such as "€9.49 at Edeka on 10/06" into amount, merchant, description, category and date.
 - Categories come from a fixed list of 16 (`CATEGORIES` in `expense_tracker_agent/tools.py`), including Groceries, Food & Dining, Commute, Housing & Utilities and Miscellaneous. The agent infers the category and never asks for it.
-- Relative dates ("yesterday") resolve against today's date, which is injected into the agent instruction at construction time.
+- Relative dates ("yesterday") resolve against today's date, which is injected into the agent instruction on every request.
 - Known merchants are normalised to a canonical name (`normalize_merchant` in `db.py`).
 - Sub-items can be attached to a parent expense (`expense_items`).
 
