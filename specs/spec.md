@@ -11,7 +11,7 @@ A local, single-user expense tracker with two ways in: a conversational Gemini a
 ### R1 — Persistence
 - Expenses are stored in `expenses.db` (SQLite); trips in `trips.db`.
 - Databases are created automatically on first run; schema changes are applied by idempotent migrations in `init_db()`.
-- Main expenses are soft-deleted (`deleted` flag) so deletes can be undone. A legacy `expenses.csv` is imported once on startup.
+- Main expenses are soft-deleted (`deleted` flag) so deletes can be undone. On every app startup, `app.py` attempts to import a legacy `expenses.csv`; archive it after verifying migration to avoid reimporting rows, especially those without a merchant.
 
 ### R2 — Conversational entry and auto-categorisation
 - The agent (Gemini 2.5 Flash via Google ADK) turns free-form input such as "€9.49 at Edeka on 10/06" into amount, merchant, description, category and date.
