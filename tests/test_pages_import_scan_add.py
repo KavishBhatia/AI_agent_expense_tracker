@@ -233,6 +233,12 @@ class TestRunImport(BaseDbTest):
         self._run([{"Date": "03/04/2026", "Cost": "1", "Shop": "Aldi"}])
         self.assertEqual(fetch_expenses()[0]["date"], "2026-04-03")  # 3 April, not 4 March
 
+    def test_iso_dates_are_not_day_month_swapped(self):
+        # Regression: pd.to_datetime(..., dayfirst=True) turned "2026-06-01" into 2026-01-06.
+        self._run([{"Date": "2026-06-01", "Cost": "1", "Shop": "Aldi"},
+                   {"Date": "2026-03-04", "Cost": "2", "Shop": "Lidl"}])
+        self.assertEqual(sorted(r["date"] for r in fetch_expenses()), ["2026-03-04", "2026-06-01"])
+
     def test_singular_success_message(self):
         out, _ = self._run([{"Date": "01/06/2026", "Cost": "1", "Shop": "Aldi"}])
         self.assertIn("1 row imported successfully", _text(out))

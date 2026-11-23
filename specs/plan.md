@@ -40,14 +40,14 @@ expense_tracker_agent/
 ├── receipt_scanner.py         # Gemini Vision parse, date normalisation, API error handling
 ├── charts.py                  # KPI stats and Plotly figure builders
 ├── db.py                      # expenses.db access, migrations, merchant normalisation
+├── dates.py                   # parse_csv_date: ISO read year-first, other formats day-first
 └── trip_db.py                 # trips.db access
 scripts/
 ├── backup_db.py               # local + Google Drive backup (--auth, --local)
 └── install_backup_schedule.sh / uninstall_backup_schedule.sh
 tests/                         # test_db, test_tools, test_trip_db, test_receipt_scanner,
                                # test_agent, test_agent_bridge, test_history, test_charts,
-                               # test_fallback_parser, test_categoriser, test_backup_script,
-                               # test_pages_{budgets,trips,dashboard_history_backup,import_scan_add}
+                               # test_fallback_parser, test_categoriser, test_dates
 docs/superpowers/{specs,plans}/ # design docs for v2, history page, categoriser, trips
 ```
 

@@ -7,6 +7,7 @@ import dash_bootstrap_components as dbc
 import pandas as pd
 from dash import Input, Output, State, callback, dash_table, dcc, html
 
+from expense_tracker_agent.dates import parse_csv_date
 from expense_tracker_agent.tools import import_csv_row
 
 dash.register_page(__name__, path="/import", name="Import CSV")
@@ -152,7 +153,7 @@ def run_import(n_clicks, json_data, date_col, cost_col, merchant_col):
         try:
             merchant = str(row[merchant_col]).strip() if merchant_col else ""
             raw_date = str(row[date_col]).strip()
-            normalized_date = pd.to_datetime(raw_date, dayfirst=True).strftime("%Y-%m-%d")
+            normalized_date = parse_csv_date(raw_date)
             result = import_csv_row(
                 date=normalized_date,
                 amount=float(str(row[cost_col]).replace(",", ".")),
